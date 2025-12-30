@@ -82,12 +82,14 @@ if submitted:
                     - Footer: "Next Follow-up: [Date]"
 
                 ### VERSION 2: FOR CLIENT (WhatsApp/Email)
+                * **FORMATTING RULES:** - User Whatsapp based formatting like bold/italics/underline at relevant places.
                 * **Tone:** Polite, Action-oriented, Professional.
                 * **Structure:**
                     - Header: "Dear {client_name},"
                     - Body: Use numbered lists (1., 2., 3.) for main points to allow easy reading on mobile.
+                    - Blank Line: after each numbered list item
                     - content: Focus on benefits and next steps.
-                    - Sign-off: "Regards, Team Moneyplus"
+                    
 
                 ### OUTPUT FORMAT
                 CRM VERSION TEXT...
