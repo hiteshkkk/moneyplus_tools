@@ -103,7 +103,7 @@ if st.button("Generate Audit Report", type="primary"):
                     tmp_file_path = tmp_file.name
 
                 # 2. Upload to Gemini
-                model = genai.GenerativeModel("gemini-1.5-flash")
+                model = genai.GenerativeModel("gemini-2.5-flash")
                 sample_file = genai.upload_file(path=tmp_file_path, display_name="Claim Doc")
 
                 # 3. Define Prompt
