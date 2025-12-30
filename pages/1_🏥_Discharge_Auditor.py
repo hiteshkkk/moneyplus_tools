@@ -1,17 +1,17 @@
 import streamlit as st
 import google.generativeai as genai
-import tempfile
 import os
 
-# --- CONFIGURATION ---
-# Replace this with your actual key or set it in your environment variables
-# For local testing, you can paste it here directly.
-API_KEY = "YOUR_GEMINI_API_KEY_HERE"
-
-# Configure Gemini
-if API_KEY:
-    genai.configure(api_key=API_KEY)
-
+# Try to get the key from Streamlit Secrets
+if "GEMINI_API_KEY" in st.secrets:
+    # This works for both Local (secrets.toml) and Cloud (Settings)
+    api_key = st.secrets["GEMINI_API_KEY"]
+    genai.configure(api_key=api_key)
+else:
+    # Fallback: If no secret is found, stop and warn the user
+    st.error("🚨 API Key missing! Please add GEMINI_API_KEY to your .streamlit/secrets.toml file.")
+    st.stop()
+    
 # --- PAGE SETUP ---
 st.set_page_config(
     page_title="Moneyplus AI Auditor",
