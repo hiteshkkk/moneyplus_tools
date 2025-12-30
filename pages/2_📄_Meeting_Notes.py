@@ -83,7 +83,7 @@ if submitted:
 
                 ### VERSION 2: FOR CLIENT (WhatsApp/Email)
                 * **FORMATTING RULES:** - User Whatsapp based formatting like bold/italics/underline at relevant places.
-                * **Tone:** Polite, Action-oriented, Professional.
+                * **Tone:** Polite, Action-oriented, Professional, Use simple Indian english words.
                 * **Structure:**
                     - Header: "Dear {client_name},"
                     - Body: Use numbered lists (1., 2., 3.) for main points to allow easy reading on mobile.
