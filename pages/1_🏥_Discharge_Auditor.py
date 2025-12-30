@@ -2,32 +2,24 @@ import streamlit as st
 import google.generativeai as genai
 import tempfile
 import os
+import json
 
 # --- 1. SETUP API KEY SAFELY ---
-# We initialize the variable first to avoid the NameError
 API_KEY = None
-
-# First, try to get it from the Cloud Secrets (or local secrets.toml)
 if "GEMINI_API_KEY" in st.secrets:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 
-# --- SIDEBAR CONFIGURATION ---
+# --- SIDEBAR ---
 with st.sidebar:
     st.image("https://moneyplus.in/wp-content/uploads/2019/01/moneyplus-logo-3-300x277.png", width=100)
     st.title("Settings")
-    
-    # If the key wasn't found in secrets, ask for it here
     if not API_KEY:
         API_KEY = st.text_input("Enter Gemini API Key", type="password")
-        if not API_KEY:
-             st.warning("⚠️ Please enter your API Key to continue.")
-    else:
-        # If it was found in secrets, just show a success message
-        st.success("API Key Loaded Securely")
+    
+    # Model Selection (Easy to upgrade later)
+    model_name = "gemini-1.5-flash" 
+    st.caption(f"Using: {model_name}")
 
-    st.info("Upload a Discharge Summary to generate an audit report.")
-
-# --- CONFIGURE GEMINI ---
 if API_KEY:
     genai.configure(api_key=API_KEY)
 
@@ -40,46 +32,54 @@ st.markdown("""
     <style>
     .report-container {
         border: 1px solid #ddd;
-        padding: 25px;
+        padding: 30px;
         border-radius: 10px;
         background-color: #ffffff;
         box-shadow: 0 4px 10px rgba(0,0,0,0.1);
         color: #333;
-        font-family: sans-serif;
+        font-family: 'Segoe UI', sans-serif;
     }
     .report-header {
         border-bottom: 2px solid #0056b3;
-        padding-bottom: 10px;
-        margin-bottom: 20px;
+        padding-bottom: 15px;
+        margin-bottom: 25px;
         color: #0056b3;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
     }
     .section-title {
-        background-color: #f4f4f4;
-        padding: 8px 12px;
+        background-color: #f0f7ff;
+        padding: 10px 15px;
         border-left: 5px solid #0056b3;
-        color: #0056b3;
-        margin-top: 20px;
+        color: #004494;
+        margin-top: 25px;
+        margin-bottom: 10px;
         font-weight: bold;
+        font-size: 1.1em;
     }
-    .info-table {
-        width: 100%;
-        border-collapse: collapse;
-        margin-bottom: 15px;
-    }
-    .info-table td {
-        padding: 8px;
-        border-bottom: 1px solid #eee;
-    }
-    .highlight-box {
-        background-color: #eef6fc;
-        border: 1px solid #cce5ff;
+    .info-table { width: 100%; border-collapse: collapse; }
+    .info-table td { padding: 10px; border-bottom: 1px solid #eee; vertical-align: top; }
+    .label { font-weight: bold; color: #555; width: 30%; }
+    
+    .flag-box {
+        background-color: #fff5f5;
+        border: 1px solid #ffcccc;
         padding: 15px;
         border-radius: 5px;
+        color: #cc0000;
+        white-space: pre-line; /* Preserves newlines from JSON */
     }
+    .lang-box {
+        margin-bottom: 10px;
+        padding: 10px;
+        background: #fafafa;
+        border-left: 3px solid #ccc;
+    }
+    .lang-label { font-size: 0.8em; color: #888; text-transform: uppercase; letter-spacing: 1px; }
     </style>
 """, unsafe_allow_html=True)
 
-# Input Form
 col1, col2 = st.columns([1, 2])
 with col1:
     claim_id = st.text_input("Claim Intimation No.", placeholder="e.g. CLM-2025-001")
@@ -88,93 +88,136 @@ with col2:
 
 # --- PROCESSING LOGIC ---
 if st.button("Generate Audit Report", type="primary"):
-    if not API_KEY:
-        st.error("🚨 API Key is missing. Please check your secrets or sidebar input.")
-    elif not uploaded_file:
-        st.error("Please upload a PDF file first.")
-    elif not claim_id:
-        st.warning("Please enter a Claim ID.")
+    if not API_KEY or not uploaded_file or not claim_id:
+        st.error("Please ensure API Key, Claim ID, and PDF are provided.")
     else:
-        with st.spinner("Reading document and generating report..."):
+        with st.spinner("Analyzing document..."):
             try:
-                # 1. Save uploaded file to temp
+                # 1. Handle File
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
                     tmp_file.write(uploaded_file.getvalue())
-                    tmp_file_path = tmp_file.name
+                    tmp_path = tmp_file.name
 
-                # 2. Upload to Gemini
-                model = genai.GenerativeModel("gemini-2.5-flash")
-                sample_file = genai.upload_file(path=tmp_file_path, display_name="Claim Doc")
+                model = genai.GenerativeModel(model_name)
+                sample_file = genai.upload_file(path=tmp_path, display_name="Claim Doc")
 
-                # 3. Define Prompt
-                prompt = f"""
-                You are a Medical Claims Auditor for Moneyplus. Analyze this discharge summary for Claim ID: {claim_id}.
+                # 2. YOUR EXACT PROMPT (Formatted for Python)
+                system_prompt = f"""
+                You are an expert medical claims processor.
+                NON-NEGOTIABLE RULES:
+                - Use ONLY the attached discharge summary document(s) as the source of truth.
+                - Return ONLY a single valid JSON object.
+                - Use EXACTLY the keys and structure specified below.
                 
-                Create a HTML report using EXACTLY this structure. Do not use Markdown ticks.
+                Claim Intimation No: "{claim_id}"
                 
+                TASK:
+                Read the attached discharge summary and return ONLY a valid JSON object in the exact structure provided below.
+                
+                GOALS:
+                - Extract claim-critical details, final diagnosis, treatment, and red flags.
+                - Provide layperson explanations in English, Hindi, and Marathi.
+                
+                OUTPUT STRUCTURE (JSON ONLY):
+                {{
+                  "name_and_age": "Patient Name, Age years",
+                  "gender": "Male/Female/Other",
+                  "admission_date_time": "DD/MM/YYYY HH:MM AM/PM",
+                  "discharge_date_time": "DD/MM/YYYY HH:MM AM/PM",
+                  "total_duration_hours": "XX hours",
+                  "diagnosis": "ONLY the final diagnosis/problem in simple words",
+                  "explanation_of_diagnosis_and_treatment": {{
+                    "English": "2-3 short lines",
+                    "Hindi": "2-3 short lines",
+                    "Marathi": "2-3 short lines"
+                  }},
+                  "medical_history_text": "- Condition 1 - Duration 1\\n- Condition 2 - Duration 2",
+                  "potential_red_flags_text": "- Red flag 1\\n- Red flag 2"
+                }}
+                """
+
+                # 3. Get Response as JSON
+                response = model.generate_content(
+                    [sample_file, system_prompt],
+                    generation_config={"response_mime_type": "application/json"}
+                )
+                
+                # 4. Parse JSON
+                data = json.loads(response.text)
+
+                # 5. Build HTML Report using Python (Safe & Consistent)
+                # We map the JSON keys to our HTML Template manually here
+                html_report = f"""
                 <div class="report-container">
                     <div class="report-header">
-                        <h2 style="margin:0;">Clinical Audit Summary</h2>
-                        <small>Generated by Moneyplus AI • Claim #{claim_id}</small>
+                        <div>
+                            <h2 style="margin:0;">Clinical Audit Summary</h2>
+                            <small>Claim Intimation: <strong>{claim_id}</strong></small>
+                        </div>
+                        <div style="text-align:right; font-size:0.9em; color:#666;">
+                            Generated by Moneyplus AI<br>
+                            Status: <span style="color:green; font-weight:bold;">Processed</span>
+                        </div>
                     </div>
 
-                    <div class="section-title">Patient Details</div>
+                    <div class="section-title">Patient & Admission Details</div>
                     <table class="info-table">
-                        <tr>
-                            <td width="30%"><strong>Name:</strong></td>
-                            <td>{{INSERT_PATIENT_NAME}}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Age / Gender:</strong></td>
-                            <td>{{INSERT_AGE}} / {{INSERT_GENDER}}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Admission Date:</strong></td>
-                            <td>{{INSERT_DOA}}</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Discharge Date:</strong></td>
-                            <td>{{INSERT_DOD}}</td>
-                        </tr>
+                        <tr><td class="label">Patient:</td><td>{data.get('name_and_age', 'N/A')}</td></tr>
+                        <tr><td class="label">Gender:</td><td>{data.get('gender', 'N/A')}</td></tr>
+                        <tr><td class="label">Admission:</td><td>{data.get('admission_date_time', 'N/A')}</td></tr>
+                        <tr><td class="label">Discharge:</td><td>{data.get('discharge_date_time', 'N/A')}</td></tr>
+                        <tr><td class="label">Duration:</td><td>{data.get('total_duration_hours', 'N/A')}</td></tr>
                     </table>
 
-                    <div class="section-title">Clinical Analysis</div>
-                    <div class="highlight-box">
-                        <p><strong>Primary Diagnosis:</strong> {{INSERT_DIAGNOSIS}}</p>
-                        <p><strong>Procedure/Treatment:</strong> {{INSERT_TREATMENT_SUMMARY}}</p>
+                    <div class="section-title">Diagnosis</div>
+                    <div style="font-size: 1.1em; font-weight: bold; padding: 10px;">
+                        {data.get('diagnosis', 'N/A')}
                     </div>
 
-                    <div class="section-title">Audit Flags</div>
-                    <ul style="margin-top:10px;">
-                        <li><strong>Room Category:</strong> {{INSERT_ROOM_CATEGORY}}</li>
-                        <li><strong>Comorbidities:</strong> {{INSERT_COMORBIDITIES}}</li>
-                    </ul>
-                    
-                    <div style="margin-top: 20px; font-size: 0.8em; color: #777; text-align: center;">
-                        Disclaimer: This report is AI-generated. Verify with original documents.
+                    <div class="section-title">Treatment Explanation (Multi-Language)</div>
+                    <div class="lang-box">
+                        <div class="lang-label">English</div>
+                        {data['explanation_of_diagnosis_and_treatment'].get('English', 'N/A')}
+                    </div>
+                    <div class="lang-box">
+                        <div class="lang-label">Hindi</div>
+                        {data['explanation_of_diagnosis_and_treatment'].get('Hindi', 'N/A')}
+                    </div>
+                    <div class="lang-box">
+                        <div class="lang-label">Marathi</div>
+                        {data['explanation_of_diagnosis_and_treatment'].get('Marathi', 'N/A')}
+                    </div>
+
+                    <div class="section-title">Medical History</div>
+                    <div style="white-space: pre-line; padding: 10px;">
+                        {data.get('medical_history_text', 'None mentioned')}
+                    </div>
+
+                    <div class="section-title" style="border-left-color: #cc0000; color: #cc0000; background-color: #fff5f5;">
+                        ⚠ Potential Red Flags
+                    </div>
+                    <div class="flag-box">
+                        {data.get('potential_red_flags_text', 'None identified')}
+                    </div>
+
+                    <div style="margin-top: 30px; text-align: center; font-size: 0.8em; color: #888;">
+                        Disclaimer: AI-generated report. Please verify with original documents.
                     </div>
                 </div>
                 """
 
-                # 4. Generate Content
-                response = model.generate_content([sample_file, prompt])
-                
-                # Clean up
-                clean_html = response.text.replace("```html", "").replace("```", "")
-
-                # 5. Display Result
+                # 6. Display & Download
                 st.markdown("---")
-                st.markdown(clean_html, unsafe_allow_html=True)
-
-                # 6. Add Download Button
+                st.markdown(html_report, unsafe_allow_html=True)
+                
                 st.download_button(
                     label="📥 Download Report as HTML",
-                    data=clean_html,
+                    data=html_report,
                     file_name=f"Audit_Report_{claim_id}.html",
                     mime="text/html"
                 )
 
-                os.remove(tmp_file_path)
+                os.remove(tmp_path)
 
             except Exception as e:
                 st.error(f"An error occurred: {e}")
