@@ -6,6 +6,25 @@ import json
 import streamlit.components.v1 as components
 from datetime import datetime
 
+# --- PASSWORD PROTECTION START ---
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if st.session_state.authenticated:
+        return True
+    
+    st.title("🔒 Moneyplus Login")
+    pwd = st.text_input("Enter Password", type="password")
+    if st.button("Login"):
+        if pwd == st.secrets["APP_PASSWORD"]:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("❌ Wrong Password")
+    st.stop()
+
+check_password()
+
 # --- 1. INITIALIZE API KEY ---
 API_KEY = None
 if "GEMINI_API_KEY" in st.secrets:
