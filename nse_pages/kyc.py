@@ -1,5 +1,6 @@
 import streamlit as st
 import requests
+import pandas as pd  # Import pandas for the clean table
 
 def render(headers):
     st.markdown("## 🔍 KYC Status Check")
@@ -7,7 +8,10 @@ def render(headers):
     
     # Input Form
     with st.form("kyc_form"):
-        pan_number = st.text_input("Enter PAN Number", placeholder="ABCDE1234F", max_chars=10).upper()
+        # 1. FORCE UPPERCASE: .upper() here ensures we always send capital letters
+        pan_input = st.text_input("Enter PAN Number", placeholder="ABCDE1234F", max_chars=10)
+        pan_number = pan_input.upper() if pan_input else ""
+        
         submitted = st.form_submit_button("Check Status")
     
     if submitted:
@@ -30,26 +34,31 @@ def render(headers):
                     data = response.json()
                     st.success("Request Successful")
                     
-                    # --- DATA FORMATTING FOR REPORT ---
+                    # --- DATA FORMATTING ---
                     report_data = []
                     
-                    # Loop through the raw JSON data
                     for key, value in data.items():
-                        # 1. Clean Key: Remove underscores and make FULL CAPS
                         clean_key = key.replace("_", " ").upper()
-                        
-                        # 2. Clean Value: Ensure it's a clean string (removes None types)
                         clean_value = str(value) if value is not None else "N/A"
                         
-                        # Add to our list
                         report_data.append({
                             "Field": clean_key, 
                             "Description": clean_value
                         })
                     
-                    # --- DISPLAY AS TABLE ---
-                    # st.table displays a static, clean table
-                    st.table(report_data)
+                    # --- DISPLAY AS FULL-WIDTH CLEAN TABLE ---
+                    # Convert list to Pandas DataFrame
+                    df = pd.DataFrame(report_data)
+                    
+                    # Display with specific options:
+                    # 1. hide_index=True -> Removes the 0, 1, 2 column
+                    # 2. use_container_width=True -> Stretches table to fit screen
+                    st.dataframe(
+                        df, 
+                        hide_index=True, 
+                        use_container_width=True,
+                        height=400  # Optional: Fixed height if list is long
+                    )
                     
                 else:
                     st.error(f"API Error: {response.status_code}")
