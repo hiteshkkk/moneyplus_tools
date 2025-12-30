@@ -6,20 +6,30 @@ import json
 
 # --- 1. SETUP API KEY SAFELY ---
 API_KEY = None
+
+# First, try to get it from Cloud Secrets (or local secrets.toml)
 if "GEMINI_API_KEY" in st.secrets:
     API_KEY = st.secrets["GEMINI_API_KEY"]
 
-# --- SIDEBAR ---
+# --- SIDEBAR CONFIGURATION ---
 with st.sidebar:
     st.image("https://moneyplus.in/wp-content/uploads/2019/01/moneyplus-logo-3-300x277.png", width=100)
     st.title("Settings")
+    
+    # If key wasn't found in secrets, ask for it here
     if not API_KEY:
         API_KEY = st.text_input("Enter Gemini API Key", type="password")
-    
-    # Model Selection (Easy to upgrade later)
-    model_name = "gemini-1.5-flash" 
-    st.caption(f"Using: {model_name}")
+        if not API_KEY:
+             st.warning("⚠️ Please enter your API Key to continue.")
+    else:
+        st.success("API Key Loaded Securely")
 
+    # --- MODEL SELECTION ---
+    # Updated to Gemini 2.5 Flash as requested
+    model_name = "gemini-2.5-flash"
+    st.caption(f"Model: {model_name}")
+
+# --- CONFIGURE GEMINI ---
 if API_KEY:
     genai.configure(api_key=API_KEY)
 
@@ -68,7 +78,7 @@ st.markdown("""
         padding: 15px;
         border-radius: 5px;
         color: #cc0000;
-        white-space: pre-line; /* Preserves newlines from JSON */
+        white-space: pre-line;
     }
     .lang-box {
         margin-bottom: 10px;
@@ -88,10 +98,14 @@ with col2:
 
 # --- PROCESSING LOGIC ---
 if st.button("Generate Audit Report", type="primary"):
-    if not API_KEY or not uploaded_file or not claim_id:
-        st.error("Please ensure API Key, Claim ID, and PDF are provided.")
+    if not API_KEY:
+        st.error("🚨 API Key is missing. Please check your secrets or sidebar input.")
+    elif not uploaded_file:
+        st.error("Please upload a PDF file first.")
+    elif not claim_id:
+        st.warning("Please enter a Claim ID.")
     else:
-        with st.spinner("Analyzing document..."):
+        with st.spinner(f"Analyzing with {model_name}..."):
             try:
                 # 1. Handle File
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
@@ -101,7 +115,7 @@ if st.button("Generate Audit Report", type="primary"):
                 model = genai.GenerativeModel(model_name)
                 sample_file = genai.upload_file(path=tmp_path, display_name="Claim Doc")
 
-                # 2. YOUR EXACT PROMPT (Formatted for Python)
+                # 2. SYSTEM PROMPT (Strict JSON)
                 system_prompt = f"""
                 You are an expert medical claims processor.
                 NON-NEGOTIABLE RULES:
@@ -145,8 +159,7 @@ if st.button("Generate Audit Report", type="primary"):
                 # 4. Parse JSON
                 data = json.loads(response.text)
 
-                # 5. Build HTML Report using Python (Safe & Consistent)
-                # We map the JSON keys to our HTML Template manually here
+                # 5. Build HTML Report
                 html_report = f"""
                 <div class="report-container">
                     <div class="report-header">
