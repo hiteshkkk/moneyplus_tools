@@ -1,25 +1,41 @@
 import streamlit as st
 import google.generativeai as genai
+import tempfile
 import os
 
-# Try to get the key from Streamlit Secrets
-if "GEMINI_API_KEY" in st.secrets:
-    # This works for both Local (secrets.toml) and Cloud (Settings)
-    api_key = st.secrets["GEMINI_API_KEY"]
-    genai.configure(api_key=api_key)
-else:
-    # Fallback: If no secret is found, stop and warn the user
-    st.error("🚨 API Key missing! Please add GEMINI_API_KEY to your .streamlit/secrets.toml file.")
-    st.stop()
-    
-# --- PAGE SETUP ---
-st.set_page_config(
-    page_title="Moneyplus AI Auditor",
-    page_icon="🏥",
-    layout="centered"
-)
+# --- 1. SETUP API KEY SAFELY ---
+# We initialize the variable first to avoid the NameError
+API_KEY = None
 
-# Custom CSS to mimic your original Moneyplus styling
+# First, try to get it from the Cloud Secrets (or local secrets.toml)
+if "GEMINI_API_KEY" in st.secrets:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+
+# --- SIDEBAR CONFIGURATION ---
+with st.sidebar:
+    st.image("https://moneyplus.in/wp-content/uploads/2019/01/moneyplus-logo-3-300x277.png", width=100)
+    st.title("Settings")
+    
+    # If the key wasn't found in secrets, ask for it here
+    if not API_KEY:
+        API_KEY = st.text_input("Enter Gemini API Key", type="password")
+        if not API_KEY:
+             st.warning("⚠️ Please enter your API Key to continue.")
+    else:
+        # If it was found in secrets, just show a success message
+        st.success("API Key Loaded Securely")
+
+    st.info("Upload a Discharge Summary to generate an audit report.")
+
+# --- CONFIGURE GEMINI ---
+if API_KEY:
+    genai.configure(api_key=API_KEY)
+
+# --- MAIN PAGE UI ---
+st.title("Moneyplus Discharge Summary Auditor")
+st.markdown("Submit the claim intimation number and upload the PDF below.")
+
+# Custom CSS for the Report
 st.markdown("""
     <style>
     .report-container {
@@ -63,20 +79,6 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- SIDEBAR (API Key & Instructions) ---
-with st.sidebar:
-    st.image("https://moneyplus.in/wp-content/uploads/2019/01/moneyplus-logo-3-300x277.png", width=100)
-    st.title("Settings")
-    if not API_KEY:
-        user_key = st.text_input("Enter Gemini API Key", type="password")
-        if user_key:
-            genai.configure(api_key=user_key)
-    st.info("Upload a Discharge Summary to generate an audit report.")
-
-# --- MAIN INTERFACE ---
-st.title("Moneyplus Discharge Summary Auditor")
-st.markdown("Submit the claim intimation number and upload the PDF below.")
-
 # Input Form
 col1, col2 = st.columns([1, 2])
 with col1:
@@ -84,16 +86,18 @@ with col1:
 with col2:
     uploaded_file = st.file_uploader("Upload Discharge Summary", type=["pdf"])
 
-# --- AI PROCESSING LOGIC ---
+# --- PROCESSING LOGIC ---
 if st.button("Generate Audit Report", type="primary"):
-    if not uploaded_file:
+    if not API_KEY:
+        st.error("🚨 API Key is missing. Please check your secrets or sidebar input.")
+    elif not uploaded_file:
         st.error("Please upload a PDF file first.")
     elif not claim_id:
         st.warning("Please enter a Claim ID.")
     else:
         with st.spinner("Reading document and generating report..."):
             try:
-                # 1. Save uploaded file to temp so Gemini can read it
+                # 1. Save uploaded file to temp
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
                     tmp_file.write(uploaded_file.getvalue())
                     tmp_file_path = tmp_file.name
@@ -102,7 +106,7 @@ if st.button("Generate Audit Report", type="primary"):
                 model = genai.GenerativeModel("gemini-1.5-flash")
                 sample_file = genai.upload_file(path=tmp_file_path, display_name="Claim Doc")
 
-                # 3. Define the Prompt (Injecting the HTML Structure)
+                # 3. Define Prompt
                 prompt = f"""
                 You are a Medical Claims Auditor for Moneyplus. Analyze this discharge summary for Claim ID: {claim_id}.
                 
@@ -155,7 +159,7 @@ if st.button("Generate Audit Report", type="primary"):
                 # 4. Generate Content
                 response = model.generate_content([sample_file, prompt])
                 
-                # Clean up the output (remove ```html if present)
+                # Clean up
                 clean_html = response.text.replace("```html", "").replace("```", "")
 
                 # 5. Display Result
@@ -170,7 +174,6 @@ if st.button("Generate Audit Report", type="primary"):
                     mime="text/html"
                 )
 
-                # Cleanup temp file
                 os.remove(tmp_file_path)
 
             except Exception as e:
