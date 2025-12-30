@@ -1,5 +1,24 @@
 import streamlit as st
 
+# --- PASSWORD PROTECTION START ---
+def check_password():
+    if "authenticated" not in st.session_state:
+        st.session_state.authenticated = False
+    if st.session_state.authenticated:
+        return True
+    
+    st.title("🔒 Moneyplus Login")
+    pwd = st.text_input("Enter Password", type="password")
+    if st.button("Login"):
+        if pwd == st.secrets["APP_PASSWORD"]:
+            st.session_state.authenticated = True
+            st.rerun()
+        else:
+            st.error("❌ Wrong Password")
+    st.stop()
+
+check_password()
+
 # 1. Page Config
 st.set_page_config(
     page_title="Moneyplus AI Suite",
