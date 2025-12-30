@@ -12,7 +12,7 @@ st.markdown("""
 ### Select a tool from the sidebar to begin:
 
 * **🏥 Discharge Auditor:** Analyze hospital summaries for claims.
-* **📄 Meeting Notes Optimiser.**
+* **📄 Meeting Notes Creator.**
 * **📧 Coming soon.**
 
 *System Status: Online | API: Connected*
