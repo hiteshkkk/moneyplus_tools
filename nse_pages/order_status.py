@@ -103,7 +103,7 @@ def render(headers):
         with c2:
             order_no = st.text_input("Order No / Product ID")
         with c3:
-            client_code = st.text_input("Client UCC")
+            client_code = st.text_input("Client UCC").upper()
 
         c4, c5, c6 = st.columns(3)
         today = datetime.date.today()
