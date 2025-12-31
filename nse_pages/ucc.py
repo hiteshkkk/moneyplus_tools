@@ -8,8 +8,8 @@ from nse_pages.utils import TABLE_STYLE, render_custom_table, get_network_detail
 
 # --- CONFIG ---
 UCC_PRIORITY = [
-    "CLIENT CODE", "PRIMARY HOLDER NAME", "PRIMARY HOLDER PAN", "GUARDIAN NAME",
-    "AUTH STATUS", "BANK1 STATUS", "BANK1 REJECTION REMARKS", "HOLDING NATURE",
+    "CLIENT CODE", "PRIMARY HOLDER NAME", "PRIMARY HOLDER PAN", "GUARDIAN NAME", "UCC STATUS",
+    "AUTH STATUS", "BANK1 STATUS", "BANK1 REJECTION REMARKS", "HOLDING NATURE", 
 ]
 
 def log_to_google_sheet(client_code, full_response_json, net_info):
