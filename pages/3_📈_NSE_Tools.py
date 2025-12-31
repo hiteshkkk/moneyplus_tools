@@ -69,23 +69,28 @@ if "nse_auth_headers" not in st.session_state:
         st.error(f"Failed to generate secure headers: {e}")
         st.stop()
 
+
+# ... (Keep all existing imports and auth logic the same) ...
+
 # --- 4. NAVIGATION SIDEBAR ---
 tool_selection = st.sidebar.radio(
     "Select Tool:",
-    ["KYC Check", "Coming Soon"]
+    ["KYC Check", "UCC Details"]  # <--- Added UCC Details here
 )
 
 # --- 5. LOAD MODULES ---
 try:
     if tool_selection == "KYC Check":
         from nse_pages import kyc
-        # Pass the pre-calculated headers to the KYC page
         kyc.render(st.session_state.nse_auth_headers)
         
-    elif tool_selection == "Coming Soon":
-        st.info("More tools can be added here later.")
+    elif tool_selection == "UCC Details":  # <--- Added Block
+        from nse_pages import ucc
+        ucc.render(st.session_state.nse_auth_headers)
 
-except ImportError:
-    st.error("⚠️ Error: 'nse_pages' folder missing or '__init__.py' missing.")
+except ImportError as e:
+    st.error(f"⚠️ Error loading module: {e}")
 except Exception as e:
     st.error(f"An error occurred: {e}")
+
+
