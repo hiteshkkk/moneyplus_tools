@@ -199,8 +199,8 @@ def render(headers):
             payload["order_ids"] = order_no
         elif client_code:
             payload["client_code"] = client_code
-            payload["from_date"] = start_date.strftime("%d-%m-%Y")
-            payload["to_date"] = end_date.strftime("%d-%m-%Y")
+            payload["from_date"] = start_date.strftime("%Y-%m-%d")
+            payload["to_date"] = end_date.strftime("%Y-%m-%d")
         else:
             st.error("🚨 Please enter either an Order No OR a Client Code.")
             return
