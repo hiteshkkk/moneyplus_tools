@@ -71,26 +71,64 @@ def render_pivot_table(records):
     html += "</tbody></table></div>"
     return html
 
+# --- HELPER: RENDER TRANSACTION RESPONSE (NEW) ---
+def render_transaction_response(response_json):
+    """
+    Renders the 'Place Order' response in a clean table with Status/Remark on top.
+    """
+    try:
+        # Extract the first record from transaction_details
+        details = response_json.get("transaction_details", [])
+        if not details:
+            return "No Transaction Details Found"
+            
+        record = details[0]
+        
+        # Priority Fields to show at Top
+        priority_keys = ["trxn_status", "trxn_remark", "trxn_order_id", "unique_reference_number"]
+        
+        html = "<table class='custom-report' style='margin-top: 10px;'>"
+        
+        # 1. Render Priority Fields
+        for key in priority_keys:
+            if key in record:
+                val = str(record.get(key, ""))
+                clean_key = key.replace("_", " ").upper()
+                fmt_val = format_html_value(val) # Applies Green/Red colors
+                
+                # Make Status row slightly larger/bolder
+                style = "font-size: 1.1em;" if "status" in key else ""
+                
+                html += f"<tr><td class='field-label'>{clean_key}</td><td class='field-value' style='{style}'>{fmt_val}</td></tr>"
+        
+        # 2. Render Remaining Fields
+        for key, val in record.items():
+            if key not in priority_keys and str(val).strip() not in ["", "None"]:
+                clean_key = key.replace("_", " ").upper()
+                fmt_val = format_html_value(val)
+                html += f"<tr><td class='field-label'>{clean_key}</td><td class='field-value'>{fmt_val}</td></tr>"
+                
+        html += "</table>"
+        return html
+        
+    except Exception as e:
+        return f"Error rendering response: {e}"
+
 # --- HELPER: MAPPER FOR RE-ORDER ---
 def prepare_reorder_payload(record):
-    """
-    Maps the Order Status Response fields to the Re-Order Request Body.
-    UPDATED: Uses DP_Folio_No instead of folio_no.
-    """
     order_sub_type = record.get("order_sub_type", "NRM")
     
     def get_val(k): return str(record.get(k, "")).strip()
     
-    # Demat Mapper: PHYSICAL -> P, DEMAT -> D
     mode_raw = get_val("transaction_mode").upper()
-    demat_val = "P" # Default
+    demat_val = "P" 
     if "DEMAT" in mode_raw: demat_val = "D"
     elif "CDSL" in mode_raw or "NSDL" in mode_raw: demat_val = "D"
     elif "PHYSICAL" in mode_raw: demat_val = "P"
 
     # --- SCENARIO 1: NORMAL ORDER (NRM) ---
     if order_sub_type == "NRM":
-        trxn_type = get_val("transaction_type") # P or R
+        trxn_type = get_val("transaction_type") 
         amount = get_val("amount")
         qty = get_val("quantity")
         
@@ -114,7 +152,6 @@ def prepare_reorder_payload(record):
                 "client_code": get_val("client_code"),
                 "demat_physical": demat_val,
                 "order_amount": order_amount,
-                # UPDATED: Use DP_Folio_No
                 "folio_no": get_val("DP_Folio_No"), 
                 "remarks": "MONEYPLUS TOOLS",
                 "kyc_flag": get_val("kyc_declaration_flag"),
@@ -148,7 +185,6 @@ def prepare_reorder_payload(record):
                 "amount": get_val("amount"),
                 "units": get_val("quantity"),
                 "all_units": get_val("all_units"),
-                # UPDATED: Use DP_Folio_No
                 "folio_no": get_val("DP_Folio_No"),
                 "remarks": "MONEYPLUS TOOLS",
                 "kyc_flag": get_val("kyc_declaration_flag"),
@@ -164,14 +200,13 @@ def prepare_reorder_payload(record):
         return "SWITCH", payload
     
     return None, None
-    
+
 # --- MAIN RENDER ---
 def render(headers):
     st.markdown("## 📊 Systematic Order Status")
     st.caption("Check status by Order No OR Client Code (7-Day Range)")
     st.markdown(TABLE_STYLE, unsafe_allow_html=True)
 
-    # --- INIT SESSION STATE ---
     if "sys_records" not in st.session_state:
         st.session_state.sys_records = None
 
@@ -190,7 +225,6 @@ def render(headers):
             st.write("") 
             submitted = st.form_submit_button("Fetch Status", use_container_width=True)
 
-    # --- LOGIC HANDLER ---
     if submitted:
         payload = {
             "from_date": "", "to_date": "",
@@ -220,10 +254,9 @@ def render(headers):
                     records = data.get("report_data", [])
                     if not records:
                         st.warning("No records found.")
-                        st.session_state.sys_records = None # Clear old data
+                        st.session_state.sys_records = None
                     else:
                         st.success(f"Found {len(records)} Records")
-                        # SAVE TO SESSION STATE so it survives the re-order click
                         st.session_state.sys_records = records
                 else:
                     st.error(f"API Error: {response.status_code}")
@@ -232,20 +265,17 @@ def render(headers):
             except Exception as e:
                 st.error(f"Connection Error: {e}")
 
-    # --- DISPLAY RECORDS (From Session State) ---
+    # --- DISPLAY RECORDS ---
     if st.session_state.sys_records:
         records = st.session_state.sys_records
         html_table = render_pivot_table(records)
         st.markdown(html_table, unsafe_allow_html=True)
         
-        # --- REORDER SYSTEM ---
         st.markdown("---")
         st.subheader("🔄 Re-Order Action")
         
-        # Dropdown with Rich Details
         record_options = {}
         for i, rec in enumerate(records):
-            # Format: Order No | Client | UCC | Scheme | Amount
             desc = (
                 f"{rec.get('order_id', 'N/A')} | "
                 f"{rec.get('first_applicant_name', 'N/A')} | "
@@ -258,16 +288,13 @@ def render(headers):
         selected_desc = st.selectbox(
             "Select Record to Re-Order", 
             list(record_options.keys()),
-            key="sys_reorder_select" # Unique key to prevent UI conflicts
+            key="sys_reorder_select"
         )
         
-        # We use a container to show success message clearly
         result_container = st.container()
 
         if st.button("🚀 Place Order Again"):
             sel_rec = record_options[selected_desc]
-            
-            # 1. Map Data
             txn_mode, reorder_payload = prepare_reorder_payload(sel_rec)
             
             if txn_mode:
@@ -276,16 +303,16 @@ def render(headers):
                 with result_container:
                     st.info(f"Submitting {txn_mode} Order for Client {sel_rec.get('client_code')}...")
                     
-                    # 2. Fire Request
                     try:
                         r2 = requests.post(reorder_url, headers=headers, json=reorder_payload)
                         
-                        # 3. Log
                         log_to_google_sheet(reorder_payload, r2.json() if r2.status_code == 200 else {"error": r2.text})
                         
                         if r2.status_code == 200:
                             st.success("✅ Order Placed Successfully!")
-                            st.json(r2.json())
+                            # --- USE NEW TABLE RENDERER ---
+                            resp_html = render_transaction_response(r2.json())
+                            st.markdown(resp_html, unsafe_allow_html=True)
                         else:
                             st.error(f"❌ Failed: {r2.status_code}")
                             st.text(r2.text)
