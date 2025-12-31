@@ -5,9 +5,11 @@ import gspread
 from google.oauth2.service_account import Credentials
 import datetime
 
-# --- HELPER: LOG TO YOUR SPECIFIC SHEET ---
-def log_to_google_sheet(pan, status, remark):
-    """Appends a row to the specific Google Sheet provided."""
+# --- HELPER: LOG RAW RESPONSE TO SHEET ---
+def log_to_google_sheet(pan, full_response_json):
+    """
+    Appends a row: [Timestamp, PAN, Multi-line Raw Response]
+    """
     try:
         # 1. Load Credentials
         scope = [
@@ -18,17 +20,24 @@ def log_to_google_sheet(pan, status, remark):
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
 
-        # 2. Open Sheet by ID (Extracted from your URL)
-        # URL: https://docs.google.com/spreadsheets/d/1BEwqqc8rDTSSyYiDwPbc06MCyQIBSNblppbzopS2Rqc/...
+        # 2. Open Sheet by ID
         sheet_id = "1BEwqqc8rDTSSyYiDwPbc06MCyQIBSNblppbzopS2Rqc"
         sheet = client.open_by_key(sheet_id).sheet1 
         
-        # 3. Append Row [Timestamp, PAN, Status, Remark]
+        # 3. Format JSON into Multi-line String
+        # Example format in cell:
+        # pan_no: ABCDE1234F
+        # kyc_status: Verified
+        # ...
+        formatted_text = ""
+        for key, value in full_response_json.items():
+            formatted_text += f"{key}: {value}\n"
+            
+        # 4. Append Row
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.append_row([timestamp, pan, status, remark])
+        sheet.append_row([timestamp, pan, formatted_text])
         
     except Exception as e:
-        # We print to console instead of UI so it doesn't disturb the user
         print(f"Logging Error: {e}")
 
 # --- MAIN RENDER FUNCTION ---
@@ -58,14 +67,11 @@ def render(headers):
                     data = response.json()
                     st.success("Request Successful")
                     
-                    # --- 1. LOG TO GOOGLE SHEET (Background Action) ---
-                    # We extract specific fields for the log
-                    kyc_status = str(data.get("kyc_status", "N/A"))
-                    kyc_remark = str(data.get("kyc_status_remark", "N/A"))
+                    # --- 1. LOG TO GOOGLE SHEET ---
+                    # Now sending the FULL data object
+                    log_to_google_sheet(pan_number, data)
                     
-                    log_to_google_sheet(pan_number, kyc_status, kyc_remark)
-                    
-                    # --- 2. DISPLAY TABLE ---
+                    # --- 2. DISPLAY CLEAN TABLE ---
                     report_data = []
                     for key, value in data.items():
                         clean_key = key.replace("_", " ").upper()
