@@ -47,7 +47,7 @@ def render(headers):
         with st.spinner(f"Fetching details for {client_code}..."):
             try:
                 net_info = get_network_details()
-                url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/CLIENT_AUTHORIZATION"
+                url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/client_detail_report"
                 payload = { "client_code": client_code, "from_date": "", "to_date": "" }
                 
                 response = requests.post(url, headers=headers, json=payload)
