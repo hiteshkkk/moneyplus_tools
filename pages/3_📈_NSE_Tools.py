@@ -69,12 +69,12 @@ if "nse_auth_headers" not in st.session_state:
         st.error(f"Failed to generate secure headers: {e}")
         st.stop()
 
-# ... (Previous imports and Auth logic remain the same) ...
+# ... (Previous imports and Auth logic remain the same) ...# ... (Keep existing imports and auth logic) ...
 
 # --- 4. NAVIGATION SIDEBAR ---
 tool_selection = st.sidebar.radio(
     "Select Tool:",
-    ["KYC Check", "UCC Details", "Order Status"]  # <--- NEW OPTION ADDED
+    ["KYC Check", "UCC Details", "Order Lifecycle Status", "Systematic Order Status"]  # <--- NEW ADDITION
 )
 
 # --- 5. LOAD MODULES ---
@@ -87,12 +87,15 @@ try:
         from nse_pages import ucc
         ucc.render(st.session_state.nse_auth_headers)
         
-    elif tool_selection == "Order Status":  # <--- NEW LOGIC ADDED
+    elif tool_selection == "Order Lifecycle Status":
         from nse_pages import order_status
         order_status.render(st.session_state.nse_auth_headers)
+        
+    elif tool_selection == "Systematic Order Status":  # <--- NEW BLOCK
+        from nse_pages import systematic_order
+        systematic_order.render(st.session_state.nse_auth_headers)
 
 except ImportError as e:
     st.error(f"⚠️ Error loading module: {e}")
 except Exception as e:
     st.error(f"An error occurred: {e}")
-
