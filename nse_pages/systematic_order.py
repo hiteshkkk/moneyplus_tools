@@ -75,6 +75,7 @@ def render_pivot_table(records):
 def prepare_reorder_payload(record):
     """
     Maps the Order Status Response fields to the Re-Order Request Body.
+    UPDATED: Uses DP_Folio_No instead of folio_no.
     """
     order_sub_type = record.get("order_sub_type", "NRM")
     
@@ -113,7 +114,8 @@ def prepare_reorder_payload(record):
                 "client_code": get_val("client_code"),
                 "demat_physical": demat_val,
                 "order_amount": order_amount,
-                "folio_no": get_val("DP_Folio_no"),
+                # UPDATED: Use DP_Folio_No
+                "folio_no": get_val("DP_Folio_No"), 
                 "remarks": "MONEYPLUS TOOLS",
                 "kyc_flag": get_val("kyc_declaration_flag"),
                 "sub_broker_code": get_val("sub_broker_code"),
@@ -146,7 +148,8 @@ def prepare_reorder_payload(record):
                 "amount": get_val("amount"),
                 "units": get_val("quantity"),
                 "all_units": get_val("all_units"),
-                "folio_no": get_val("DP_Folio_no"),
+                # UPDATED: Use DP_Folio_No
+                "folio_no": get_val("DP_Folio_No"),
                 "remarks": "MONEYPLUS TOOLS",
                 "kyc_flag": get_val("kyc_declaration_flag"),
                 "sub_broker_code": get_val("sub_broker_code"),
@@ -161,7 +164,7 @@ def prepare_reorder_payload(record):
         return "SWITCH", payload
     
     return None, None
-
+    
 # --- MAIN RENDER ---
 def render(headers):
     st.markdown("## 📊 Systematic Order Status")
