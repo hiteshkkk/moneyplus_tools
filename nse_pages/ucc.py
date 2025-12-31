@@ -6,9 +6,46 @@ from google.oauth2.service_account import Credentials
 import datetime
 from streamlit.web.server.websocket_headers import _get_websocket_headers
 
+# --- CONSTANTS: PRIORITY SORT ORDER ---
+# These fields will always appear at the top in this specific order
+PRIORITY_FIELDS = [
+    "CLIENT CODE",
+    "PRIMARY HOLDER FIRST NAME", 
+    "PRIMARY HOLDER PAN",
+    "HOLDING NATURE",
+    "TAX STATUS",
+    "INDIAN MOBILE NO",      # Adjusted based on your sample JSON key
+    "EMAIL",                 # Adjusted based on your sample JSON key
+    "BANK 1 STATUS",
+    "BANK 1 STATUS REMARKS"
+]
+
+# --- CONSTANTS: COLOR LOGIC ---
+def get_color(val):
+    """
+    Returns CSS background color string based on value keywords.
+    """
+    if not isinstance(val, str):
+        return ""
+    
+    val_lower = val.lower()
+    
+    # GREEN: Success / Active / Approved
+    if any(x in val_lower for x in ['success', 'active', 'approved', 'svalid', 'done', 'yes']):
+        return 'background-color: #d4edda; color: #155724' # Light Green BG, Dark Green Text
+        
+    # ORANGE: Pending / Wait
+    if any(x in val_lower for x in ['pending', 'wait']):
+        return 'background-color: #fff3cd; color: #856404' # Light Yellow BG, Dark Yellow Text
+        
+    # RED: Fail / Reject / Error / Invalid
+    if any(x in val_lower for x in ['fail', 'reject', 'error', 'differs', 'invalid', 'insufficient', 'no']):
+        return 'background-color: #f8d7da; color: #721c24' # Light Red BG, Dark Red Text
+        
+    return "" # Default (No Color)
+
 # --- HELPER: GET NETWORK DETAILS ---
 def get_network_details():
-    """Captures Server IP, User IP, and Browser Info."""
     details = {}
     try:
         details['Streamlit_Server_IP'] = requests.get('https://api.ipify.org').text
@@ -28,34 +65,25 @@ def get_network_details():
         details['Browser_Info'] = "Error"
     return details
 
-# --- HELPER: LOG TO UCC SHEET ---
+# --- HELPER: LOG TO SHEET ---
 def log_to_google_sheet(client_code, full_response_json, net_info):
-    """
-    Appends a row to the UCC Logs Sheet.
-    Sheet ID: 1PI-BfizbrzMftNm69WxZ-YEnviA4aqeSjf4r4DZA4bw
-    """
     try:
-        # 1. Load Credentials
         scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
         creds_dict = st.secrets["gcp_service_account"]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         client = gspread.authorize(creds)
 
-        # 2. Open Sheet by ID
+        # Sheet ID for UCC
         sheet_id = "1PI-BfizbrzMftNm69WxZ-YEnviA4aqeSjf4r4DZA4bw"
         sheet = client.open_by_key(sheet_id).sheet1 
         
-        # 3. Format Raw API Response (Col C)
-        api_text = str(full_response_json) # Convert dict to string for safety
-            
-        # 4. Format Network Details (Col D)
+        api_text = str(full_response_json)
         net_text = (
             f"User IP: {net_info.get('User_Public_IP')}\n"
             f"Browser: {net_info.get('Browser_Info')}\n"
             f"Server IP: {net_info.get('Streamlit_Server_IP')}"
         )
 
-        # 5. Append Row
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         sheet.append_row([timestamp, client_code, api_text, net_text])
         
@@ -97,28 +125,56 @@ def render(headers):
                     # 3. Log to Google Sheet
                     log_to_google_sheet(client_code, data, net_info)
 
-                    # 4. Process Data for Display
+                    # 4. Process Data
                     if data.get("report_data") and len(data["report_data"]) > 0:
-                        record = data["report_data"][0] # Take the first record
+                        record = data["report_data"][0]
                         
-                        report_data = []
+                        # --- A. CLEAN AND FILTER DATA ---
+                        cleaned_dict = {}
                         for key, value in record.items():
-                            # FILTER LOGIC: Skip if value is None, "", or " "
                             if value is None: continue
                             if str(value).strip() == "": continue
                             
-                            # Clean Key
                             clean_key = key.replace("_", " ").upper()
-                            clean_value = str(value)
-                            
-                            report_data.append({"Field": clean_key, "Description": clean_value})
+                            cleaned_dict[clean_key] = str(value)
                         
+                        # --- B. APPLY SORTING LOGIC ---
+                        final_rows = []
+                        
+                        # 1. Add Priority Fields first (if they exist in data)
+                        for field in PRIORITY_FIELDS:
+                            if field in cleaned_dict:
+                                final_rows.append({"Field": field, "Description": cleaned_dict[field]})
+                                del cleaned_dict[field] # Remove so we don't add it again
+                        
+                        # 2. Add Remaining fields (Optional: Sort them alphabetically)
+                        remaining_fields = sorted(cleaned_dict.keys())
+                        for field in remaining_fields:
+                            final_rows.append({"Field": field, "Description": cleaned_dict[field]})
+                            
+                        # --- C. CREATE DATAFRAME ---
+                        df = pd.DataFrame(final_rows)
+                        
+                        # --- D. APPLY COLOR STYLING ---
+                        # We apply the 'get_color' function to the 'Description' column
+                        styled_df = df.style.map(get_color, subset=['Description'])
+
                         st.success("Details Fetched Successfully")
-                        df = pd.DataFrame(report_data)
-                        st.dataframe(df, hide_index=True, use_container_width=True, height=600)
+                        
+                        # Display the Styled Dataframe
+                        st.dataframe(
+                            styled_df, 
+                            hide_index=True, 
+                            use_container_width=True, 
+                            height=600,
+                            column_config={
+                                "Field": st.column_config.TextColumn("Field", width="medium"),
+                                "Description": st.column_config.TextColumn("Description", width="large")
+                            }
+                        )
                     else:
                         st.warning("No data found for this Client Code.")
-                        st.json(data) # Show raw if structure is unexpected
+                        st.json(data)
                     
                 else:
                     st.error(f"API Error: {response.status_code}")
