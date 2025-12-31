@@ -75,11 +75,9 @@ def render_pivot_table(records):
 def prepare_reorder_payload(record):
     """
     Maps the Order Status Response fields to the Re-Order Request Body.
-    Handles NRM vs SWH logic.
     """
     order_sub_type = record.get("order_sub_type", "NRM")
     
-    # Common Helpers
     def get_val(k): return str(record.get(k, "")).strip()
     
     # Demat Mapper: PHYSICAL -> P, DEMAT -> D
@@ -91,7 +89,6 @@ def prepare_reorder_payload(record):
 
     # --- SCENARIO 1: NORMAL ORDER (NRM) ---
     if order_sub_type == "NRM":
-        # Handle Redemptions vs Purchase for Amounts/Units
         trxn_type = get_val("transaction_type") # P or R
         amount = get_val("amount")
         qty = get_val("quantity")
@@ -102,7 +99,6 @@ def prepare_reorder_payload(record):
         if trxn_type == "P":
             order_amount = amount
         else:
-            # If Redemption, check if by amount or units
             if float(qty or 0) > 0:
                 redemption_units = qty
             else:
@@ -110,10 +106,10 @@ def prepare_reorder_payload(record):
 
         payload = {
             "transaction_details": [{
-                "order_ref_number": "", # Always blank for new order
+                "order_ref_number": "", 
                 "scheme_code": get_val("scheme_code"),
                 "trxn_type": trxn_type,
-                "buy_sell_type": get_val("investment_type"), # FRESH / ADDITIONAL
+                "buy_sell_type": get_val("investment_type"),
                 "client_code": get_val("client_code"),
                 "demat_physical": demat_val,
                 "order_amount": order_amount,
@@ -143,10 +139,10 @@ def prepare_reorder_payload(record):
             "transaction_details": [{
                 "order_ref_number": "",
                 "from_scheme_code": get_val("scheme_code"),
-                "to_scheme_code": get_val("to_scheme_code"), # WARNING: Might be missing in source
+                "to_scheme_code": get_val("to_scheme_code"),
                 "buy_sell_type": get_val("investment_type"),
                 "client_code": get_val("client_code"),
-                "demat_physical": "C" if demat_val == "D" else "P", # API docs often use 'C' for demat switch? Reverting to P/D logic usually safer unless specific req.
+                "demat_physical": "C" if demat_val == "D" else "P", 
                 "amount": get_val("amount"),
                 "units": get_val("quantity"),
                 "all_units": get_val("all_units"),
@@ -172,6 +168,10 @@ def render(headers):
     st.caption("Check status by Order No OR Client Code (7-Day Range)")
     st.markdown(TABLE_STYLE, unsafe_allow_html=True)
 
+    # --- INIT SESSION STATE ---
+    if "sys_records" not in st.session_state:
+        st.session_state.sys_records = None
+
     with st.form("sys_order_form"):
         c1, c2 = st.columns(2)
         with c1: order_no = st.text_input("Order No (Specific)")
@@ -187,8 +187,8 @@ def render(headers):
             st.write("") 
             submitted = st.form_submit_button("Fetch Status", use_container_width=True)
 
+    # --- LOGIC HANDLER ---
     if submitted:
-        # Prepare Payload
         payload = {
             "from_date": "", "to_date": "",
             "trans_type": "ALL", "order_type": "ALL",
@@ -217,56 +217,77 @@ def render(headers):
                     records = data.get("report_data", [])
                     if not records:
                         st.warning("No records found.")
-                        return
-
-                    st.success(f"Found {len(records)} Records")
-                    html_table = render_pivot_table(records)
-                    st.markdown(html_table, unsafe_allow_html=True)
-                    
-                    # --- REORDER SYSTEM ---
-                    st.markdown("---")
-                    st.subheader("🔄 Re-Order Action")
-                    
-                    # Dropdown to select record
-                    record_options = {}
-                    for i, rec in enumerate(records):
-                        # Label: Record 1 | NRM | Scheme Name...
-                        desc = f"Record {i+1} | {rec.get('order_sub_type','NRM')} | {rec.get('scheme_name','Unknown')[:30]}..."
-                        record_options[desc] = rec
-
-                    selected_desc = st.selectbox("Select Record to Re-Order", list(record_options.keys()))
-                    
-                    if st.button("🚀 Place Order Again"):
-                        sel_rec = record_options[selected_desc]
-                        
-                        # 1. Map Data
-                        txn_mode, reorder_payload = prepare_reorder_payload(sel_rec)
-                        
-                        if txn_mode:
-                            reorder_url = f"https://www.nseinvest.com/nsemfdesk/api/v2/transaction/{txn_mode}"
-                            
-                            st.caption(f"Target URL: {reorder_url}")
-                            # st.json(reorder_payload) # Debug: Show payload before sending
-                            
-                            # 2. Fire Request
-                            with st.spinner(f"Placing {txn_mode} Order..."):
-                                r2 = requests.post(reorder_url, headers=headers, json=reorder_payload)
-                                
-                                # 3. Log & Show Result
-                                log_to_google_sheet(reorder_payload, r2.json() if r2.status_code == 200 else {"error": r2.text})
-                                
-                                if r2.status_code == 200:
-                                    st.success("Order Placed Successfully!")
-                                    st.json(r2.json())
-                                else:
-                                    st.error(f"Failed: {r2.status_code}")
-                                    st.text(r2.text)
-                        else:
-                            st.error("Could not determine Transaction Mode (NRM/SWH)")
-
+                        st.session_state.sys_records = None # Clear old data
+                    else:
+                        st.success(f"Found {len(records)} Records")
+                        # SAVE TO SESSION STATE so it survives the re-order click
+                        st.session_state.sys_records = records
                 else:
                     st.error(f"API Error: {response.status_code}")
                     st.text(response.text)
 
             except Exception as e:
                 st.error(f"Connection Error: {e}")
+
+    # --- DISPLAY RECORDS (From Session State) ---
+    if st.session_state.sys_records:
+        records = st.session_state.sys_records
+        html_table = render_pivot_table(records)
+        st.markdown(html_table, unsafe_allow_html=True)
+        
+        # --- REORDER SYSTEM ---
+        st.markdown("---")
+        st.subheader("🔄 Re-Order Action")
+        
+        # Dropdown with Rich Details
+        record_options = {}
+        for i, rec in enumerate(records):
+            # Format: Order No | Client | UCC | Scheme | Amount
+            desc = (
+                f"{rec.get('order_id', 'N/A')} | "
+                f"{rec.get('first_applicant_name', 'N/A')} | "
+                f"{rec.get('client_code', 'N/A')} | "
+                f"{rec.get('scheme_name', 'N/A')[:25]}... | "
+                f"₹{rec.get('amount', '0')}"
+            )
+            record_options[desc] = rec
+
+        selected_desc = st.selectbox(
+            "Select Record to Re-Order", 
+            list(record_options.keys()),
+            key="sys_reorder_select" # Unique key to prevent UI conflicts
+        )
+        
+        # We use a container to show success message clearly
+        result_container = st.container()
+
+        if st.button("🚀 Place Order Again"):
+            sel_rec = record_options[selected_desc]
+            
+            # 1. Map Data
+            txn_mode, reorder_payload = prepare_reorder_payload(sel_rec)
+            
+            if txn_mode:
+                reorder_url = f"https://www.nseinvest.com/nsemfdesk/api/v2/transaction/{txn_mode}"
+                
+                with result_container:
+                    st.info(f"Submitting {txn_mode} Order for Client {sel_rec.get('client_code')}...")
+                    
+                    # 2. Fire Request
+                    try:
+                        r2 = requests.post(reorder_url, headers=headers, json=reorder_payload)
+                        
+                        # 3. Log
+                        log_to_google_sheet(reorder_payload, r2.json() if r2.status_code == 200 else {"error": r2.text})
+                        
+                        if r2.status_code == 200:
+                            st.success("✅ Order Placed Successfully!")
+                            st.json(r2.json())
+                        else:
+                            st.error(f"❌ Failed: {r2.status_code}")
+                            st.text(r2.text)
+                    except Exception as e:
+                        st.error(f"Connection Failed: {e}")
+            else:
+                with result_container:
+                    st.error("Could not determine Transaction Mode (NRM/SWH)")
