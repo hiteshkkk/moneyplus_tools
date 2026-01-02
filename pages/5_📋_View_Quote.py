@@ -9,7 +9,7 @@ import base64
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
 APP_BASE_URL = "https://moneyplustools.streamlit.app" 
 
-# --- 2. CSS STYLING ---
+# --- 2. CSS FOR STREAMLIT GENERATOR (Backend) ---
 ST_STYLE = """
 <style>
     .stMultiSelect span[data-baseweb="tag"] {
@@ -28,96 +28,226 @@ ST_STYLE = """
 </style>
 """
 
-# HTML Template (Fixed for PDF Spacing)
+# --- 3. RICH HTML TEMPLATE (Frontend for Client) ---
+# This is a full responsive web page design
 QUOTE_HTML_TEMPLATE = """
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>Quote {quote_id}</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proposal for {client}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        body {{ font-family: 'Segoe UI', Tahoma, sans-serif; padding: 40px; background-color: #fff; color: #333; }}
-        .container {{ max-width: 950px; margin: 0 auto; }}
-        
-        /* Header */
-        .header {{ text-align: center; border-bottom: 3px solid #4CAF50; padding-bottom: 20px; margin-bottom: 30px; }}
-        .header h1 {{ margin: 0; color: #2E7D32; font-size: 28px; }}
-        .meta {{ font-size: 14px; color: #666; margin-top: 5px; }}
-        
-        /* Client Grid */
-        .client-grid {{ display: flex; gap: 15px; background: #f1f8e9; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #c5e1a5; }}
-        .client-item {{ flex: 1; }}
-        .label {{ font-size: 11px; font-weight: bold; color: #558b2f; text-transform: uppercase; margin-bottom: 4px; }}
-        .value {{ font-size: 15px; font-weight: 600; color: #000; }}
-        
-        /* Plan Cards - SCREEN MODE */
-        .plans-container {{ display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 30px; }}
-        .plan-card {{ 
-            flex: 1; min-width: 250px; 
-            border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; 
-            box-shadow: 0 4px 6px rgba(0,0,0,0.05); background: #fff; 
+        :root {{
+            --primary: #2E7D32;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --text-main: #1f2937;
+            --text-muted: #6b7280;
         }}
-        .plan-name {{ font-size: 18px; font-weight: bold; color: #1565C0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; }}
-        .premium {{ font-size: 18px; font-weight: bold; color: #D32F2F; margin-bottom: 8px; white-space: pre-wrap; }}
-        .notes {{ font-size: 14px; color: #555; background: #fffbe6; padding: 12px; border-radius: 4px; white-space: pre-wrap; }}
         
-        /* Table */
-        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; page-break-inside: auto; }}
-        tr {{ page-break-inside: avoid; page-break-after: auto; }}
-        th {{ background-color: #e8f5e9; color: #2e7d32; text-align: left; padding: 10px; border: 1px solid #c8e6c9; }}
-        td {{ padding: 10px; border: 1px solid #eee; vertical-align: top; }}
+        body {{
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 0;
+            color: var(--text-main);
+            line-height: 1.5;
+        }}
+
+        /* HERO SECTION */
+        .hero {{
+            background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%);
+            color: white;
+            padding: 40px 20px 80px;
+            text-align: center;
+        }}
+        .hero h1 {{ margin: 0; font-size: 28px; font-weight: 700; }}
+        .hero p {{ margin: 10px 0 0; opacity: 0.9; font-size: 16px; }}
+        .badge {{ 
+            background: rgba(255,255,255,0.2); 
+            padding: 4px 12px; 
+            border-radius: 20px; 
+            font-size: 12px; 
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }}
+
+        /* MAIN CONTAINER (Overlaps Hero) */
+        .container {{
+            max-width: 1000px;
+            margin: -50px auto 40px;
+            padding: 0 20px;
+            position: relative;
+            z-index: 10;
+        }}
+
+        /* CLIENT INFO CARD */
+        .client-card {{
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+            border: 1px solid #eaeaea;
+        }}
+        .info-item .label {{ font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }}
+        .info-item .value {{ font-size: 16px; font-weight: 700; color: var(--text-main); }}
+
+        /* SECTION TITLES */
+        .section-title {{
+            text-align: center;
+            font-size: 22px;
+            font-weight: 700;
+            margin-bottom: 25px;
+            color: var(--text-main);
+            position: relative;
+            display: inline-block;
+            width: 100%;
+        }}
         
-        /* PRINT FIXES (Removes Blank Pages) */
-        @media print {{
-            body {{ padding: 0; margin: 0; }}
-            .container {{ width: 100%; max-width: 100%; margin: 0; }}
-            .no-print {{ display: none; }}
-            
-            /* Switch to Block layout for Print to avoid Flex page-break bugs */
-            .plans-container {{ display: block; }}
-            .plan-card {{ 
-                display: inline-block; 
-                width: 46%; /* Two per row */
-                vertical-align: top;
-                margin: 1%;
-                border: 1px solid #ccc;
-                box-shadow: none;
-                page-break-inside: avoid; /* Prevent card split */
-            }}
-            .client-grid {{ border: 1px solid #ccc; background: #fff; }}
-            
-            /* Ensure table fits */
-            table {{ page-break-inside: auto; }}
+        /* PLAN CARDS GRID */
+        .plans-grid {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+            margin-bottom: 50px;
+        }}
+        
+        .plan-card {{
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02), 0 10px 15px rgba(0,0,0,0.03);
+            transition: transform 0.2s, box-shadow 0.2s;
+            border: 1px solid #f0f0f0;
+            display: flex;
+            flex-direction: column;
+        }}
+        .plan-card:hover {{
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px rgba(0,0,0,0.1);
+            border-color: var(--primary);
+        }}
+        
+        .card-header {{
+            background: #f1f8e9;
+            padding: 20px;
+            border-bottom: 1px solid #e0e0e0;
+        }}
+        .plan-name {{ font-size: 18px; font-weight: 700; color: #1b5e20; }}
+        
+        .card-body {{ padding: 25px; flex-grow: 1; }}
+        
+        .premium-box {{ 
+            margin-bottom: 20px; 
+            padding-bottom: 20px; 
+            border-bottom: 1px dashed #e0e0e0; 
+        }}
+        .premium-label {{ font-size: 12px; color: var(--text-muted); font-weight: 600; }}
+        .premium-value {{ font-size: 24px; font-weight: 800; color: #d32f2f; white-space: pre-wrap; }}
+        
+        .notes-box {{ font-size: 14px; color: #555; line-height: 1.6; white-space: pre-wrap; }}
+        .notes-box ul {{ margin: 0; padding-left: 20px; }}
+
+        /* COMPARISON TABLE */
+        .table-wrapper {{
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+            overflow-x: auto; /* Scroll on mobile */
+            border: 1px solid #eaeaea;
+        }}
+        table {{ width: 100%; border-collapse: collapse; min-width: 600px; }}
+        th {{ 
+            background: #f8f9fa; 
+            text-align: left; 
+            padding: 15px 20px; 
+            font-size: 13px; 
+            color: var(--text-muted); 
+            text-transform: uppercase;
+            border-bottom: 2px solid #eaeaea;
+        }}
+        td {{ 
+            padding: 15px 20px; 
+            border-bottom: 1px solid #eaeaea; 
+            font-size: 14px; 
+            color: var(--text-main);
+        }}
+        tr:last-child td {{ border-bottom: none; }}
+        
+        /* FOOTER */
+        .footer {{
+            text-align: center;
+            margin-top: 50px;
+            padding: 20px;
+            color: var(--text-muted);
+            font-size: 14px;
+        }}
+        
+        /* MOBILE TWEAKS */
+        @media (max-width: 768px) {{
+            .hero {{ padding-bottom: 60px; }}
+            .container {{ margin-top: -40px; }}
+            .client-card {{ grid-template-columns: 1fr 1fr; gap: 15px; }}
+            .section-title {{ font-size: 20px; }}
         }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>Health Insurance Proposal</h1>
-            <div class="meta">Quote ID: {quote_id} | Date: {date}</div>
-        </div>
-        <div class="client-grid">
-            <div class="client-item"><div class="label">RM Name</div><div class="value">{rm}</div></div>
-            <div class="client-item"><div class="label">Client</div><div class="value">{client}</div></div>
-            <div class="client-item"><div class="label">City</div><div class="value">{city}</div></div>
-            <div class="client-item"><div class="label">Type</div><div class="value">{type}</div></div>
-        </div>
-        
-        <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">Recommended Options</h3>
-        <div class="plans-container">{plans_html}</div>
-        
-        <h3 style="border-bottom: 2px solid #eee; padding-bottom: 10px;">Feature Comparison</h3>
-        {table_html}
-        
-        <div style="text-align:center; margin-top:40px; padding-top:20px;" class="no-print">
-            <button onclick="window.print()" style="padding:12px 24px; background:#4CAF50; color:white; border:none; border-radius:4px; font-size:16px; cursor:pointer; font-weight:bold;">🖨️ Print / Save as PDF</button>
-        </div>
+
+    <div class="hero">
+        <span class="badge">Health Insurance Proposal</span>
+        <h1 style="margin-top: 10px;">Quote for {client}</h1>
+        <p>Prepared by {rm} on {date}</p>
     </div>
+
+    <div class="container">
+        
+        <div class="client-card">
+            <div class="info-item">
+                <div class="label">Quote Reference</div>
+                <div class="value">{quote_id}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Client Name</div>
+                <div class="value">{client}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Location</div>
+                <div class="value">{city}</div>
+            </div>
+            <div class="info-item">
+                <div class="label">Policy Type</div>
+                <div class="value">{type}</div>
+            </div>
+        </div>
+
+        <div class="section-title">Recommended Plans</div>
+        <div class="plans-grid">
+            {plans_html}
+        </div>
+
+        <div class="section-title">Feature Comparison</div>
+        <div class="table-wrapper">
+            {table_html}
+        </div>
+
+        <div class="footer">
+            <p>Need changes? Contact {rm} for assistance.</p>
+        </div>
+
+    </div>
+
 </body>
 </html>
 """
 
-# --- 3. GOOGLE SHEETS HELPERS ---
+# --- 4. GOOGLE SHEETS HELPERS ---
 @st.cache_resource
 def get_gspread_client():
     try:
@@ -179,7 +309,6 @@ def generate_custom_id(rm_name, row_count):
 
 def log_quote_to_sheet(ws, quote_data):
     try:
-        # STRICT ORDER MAPPING
         row = [
             quote_data['quote_id'],
             quote_data['date'],
@@ -202,26 +331,18 @@ def log_quote_to_sheet(ws, quote_data):
         st.error(f"❌ Log Error: {e}")
         return False
 
-# --- 4. VIEWER MODE (FIXED MAPPING) ---
+# --- 5. VIEWER MODE ---
 def render_quote_viewer(quote_id):
-    st.set_page_config(page_title=f"Quote {quote_id}", layout="centered")
+    st.set_page_config(page_title=f"Quote {quote_id}", layout="centered", initial_sidebar_state="collapsed")
     
-    with st.spinner("Fetching Quote..."):
+    with st.spinner("Fetching Proposal..."):
         ws, _, all_values = get_sheet_and_rows()
-        
-        if not ws or not all_values: 
-            st.error("Could not access database.")
-            return
+        if not ws or not all_values: return
         
         headers = all_values[0]
-        
-        # 1. FIND ID COLUMN (Robust Check)
-        try:
-            q_idx = headers.index("Quote_ID")
-        except:
-            q_idx = 0 # Default to first column if header is missing
-        
-        # 2. FIND ROW
+        try: q_idx = headers.index("Quote_ID")
+        except: q_idx = 0 
+
         target_row = None
         for row in all_values:
             if len(row) > q_idx and str(row[q_idx]).strip() == str(quote_id).strip():
@@ -229,52 +350,50 @@ def render_quote_viewer(quote_id):
                 break
         
         if not target_row:
-            st.error(f"❌ Quote ID '{quote_id}' not found.")
-            with st.expander("Debugging Info (Show this to Admin)"):
-                st.write(f"Looking for: {quote_id}")
-                st.write(f"ID Column Index: {q_idx}")
-                st.write("First 5 Rows in Sheet:", all_values[:5])
+            st.error("Quote not found.")
             return
 
-        # 3. MAP DATA (Using Fixed Indices to avoid Header Name bugs)
-        # We assume the user has fixed the headers to match the standard order:
-        # 0:ID, 1:Date, 2:RM, 3:Client, 4:City, 5:Type, 6:Link, 7+:Plans
-        
-        def safe_get(idx):
-            return target_row[idx] if idx < len(target_row) else ""
+        def safe_get(idx): return target_row[idx] if idx < len(target_row) else ""
 
-        # Using explicit indices for reliability
+        # Map Basic Info
+        # Assumes Header Order: Quote_ID(0), Date(1), RM(2), Client(3), City(4), Type(5), CRM(6)
         date_val = safe_get(1)
         rm_val = safe_get(2)
         client_val = safe_get(3)
         city_val = safe_get(4)
         type_val = safe_get(5)
-        
-        # Plans start at Index 7
-        # Plan 1: 7, 8, 9
-        # Plan 2: 10, 11, 12 ...
-        
+
+        # Map Plans (Starting Index 7)
         plans_html = ""
         active_plans = []
         
         for i in range(5):
             base_idx = 7 + (i * 3)
             p_name = safe_get(base_idx)
-            
             if p_name and p_name.strip():
                 p_prem = safe_get(base_idx + 1).replace('\n', '<br>')
-                p_note = safe_get(base_idx + 2).replace('\n', '<br>')
-                
+                p_note = safe_get(base_idx + 2).replace('\n', '<br>') # Keeps line breaks
                 active_plans.append(p_name)
+                
                 plans_html += f"""
                 <div class="plan-card">
-                    <div class="plan-name">{p_name}</div>
-                    <div class="premium">{p_prem}</div>
-                    <div class="notes">{p_note}</div>
+                    <div class="card-header">
+                        <div class="plan-name">{p_name}</div>
+                    </div>
+                    <div class="card-body">
+                        <div class="premium-box">
+                            <div class="premium-label">PREMIUM ESTIMATE</div>
+                            <div class="premium-value">{p_prem}</div>
+                        </div>
+                        <div class="notes-box">
+                            <strong>Key Highlights:</strong><br>
+                            {p_note}
+                        </div>
+                    </div>
                 </div>
                 """
 
-        # 4. RECONSTRUCT TABLE
+        # Map Table
         _, df_plans = load_master_data()
         table_html = ""
         if df_plans is not None and not df_plans.empty and active_plans:
@@ -287,7 +406,7 @@ def render_quote_viewer(quote_id):
                 table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
                 table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
 
-        # 5. RENDER
+        # Render Full Page
         full_html = QUOTE_HTML_TEMPLATE.format(
             quote_id=quote_id,
             date=date_val,
@@ -300,10 +419,10 @@ def render_quote_viewer(quote_id):
         )
         
         st.components.v1.html(full_html, height=1200, scrolling=True)
-        st.markdown(f'<a href="{APP_BASE_URL}" target="_self">⬅️ Create New Quote</a>', unsafe_allow_html=True)
+        st.markdown(f'<div style="text-align:center; margin-top:20px;"><a href="{APP_BASE_URL}" target="_self" style="text-decoration:none; color:#2E7D32; font-weight:bold;">⬅️ Create New Quote</a></div>', unsafe_allow_html=True)
 
 
-# --- 5. MAIN GENERATOR ---
+# --- 6. MAIN GENERATOR ---
 def main():
     if "quote_id" in st.query_params:
         render_quote_viewer(st.query_params["quote_id"])
@@ -395,8 +514,8 @@ def main():
                                 st.success(f"✅ Quote **{quote_id}** Generated!")
                                 st.markdown(f"""
                                 <a href="{target_url}" target="_blank" style="text-decoration:none;">
-                                    <div style="background-color:#4CAF50; color:white; padding:15px; border-radius:5px; text-align:center; font-weight:bold; font-size:18px;">
-                                        🔗 OPEN QUOTE: {quote_id}
+                                    <div style="background-color:#4CAF50; color:white; padding:15px; border-radius:5px; text-align:center; font-weight:bold; font-size:18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+                                        🔗 OPEN DIGITAL QUOTE: {quote_id}
                                     </div>
                                 </a>
                                 """, unsafe_allow_html=True)
