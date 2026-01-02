@@ -21,6 +21,7 @@ def get_gspread_client():
         return None
 
 # --- 3. HELPER: LOAD MASTER DATA ---
+
 @st.cache_data(ttl=600)
 def load_master_data():
     client = get_gspread_client()
@@ -29,27 +30,36 @@ def load_master_data():
     try:
         sheet = client.open_by_url(SHEET_URL)
         
-        # --- DEBUG: LIST ALL WORKSHEETS ---
-        worksheets = sheet.worksheets()
-        st.write("found these tabs in your sheet:")
-        for ws in worksheets:
-            st.code(ws.title) # Copy this name exactly!
-        # ----------------------------------
+        # 1. Load Dropdowns (Assuming this still starts at Row 1?)
+        # If Dropdowns ALSO start at Row 3, change the logic below to match Plans_Master
+        ws_dropdowns = sheet.worksheet("Dropdown_Masters")
+        raw_dropdowns = ws_dropdowns.get_all_values()
+        if len(raw_dropdowns) > 1:
+            df_dropdowns = pd.DataFrame(raw_dropdowns[1:], columns=raw_dropdowns[0])
+        else:
+            df_dropdowns = pd.DataFrame()
 
-        # Attempt to load (this might still fail until you update the names below)
-        ws_dropdowns = sheet.worksheet("Dropdown_Masters") 
-        data_dropdowns = ws_dropdowns.get_all_records()
-        df_dropdowns = pd.DataFrame(data_dropdowns)
-        
+        # 2. Load Plans (STARTS AT ROW 3)
         ws_plans = sheet.worksheet("Plans_Master")
-        data_plans = ws_plans.get_all_records()
-        df_plans = pd.DataFrame(data_plans)
+        raw_plans = ws_plans.get_all_values()
+        
+        # Ensure we have enough data (at least 3 rows)
+        if len(raw_plans) > 3:
+            # Row 3 (Index 2) contains the Headers
+            headers = raw_plans[2] 
+            
+            # Row 4 (Index 3) onwards contains the Data
+            data = raw_plans[3:]
+            
+            df_plans = pd.DataFrame(data, columns=headers)
+        else:
+            df_plans = pd.DataFrame() # Empty fallback
         
         return df_dropdowns, df_plans
-
+        
     except Exception as e:
-        st.error(f"Error Details: {e}")
-        return None, NoneNone
+        st.error(f"❌ Unexpected Error: {e}")
+        return None, None
 
 # --- 4. MAIN APP UI ---
 def main():
