@@ -3,4 +3,3 @@ google-generativeai
 pycryptodome
 google-auth
 gspread
-st-gsheets-connection
