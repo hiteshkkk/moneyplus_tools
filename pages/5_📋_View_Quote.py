@@ -9,7 +9,7 @@ import base64
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
 APP_BASE_URL = "https://moneyplustools.streamlit.app" 
 
-# --- 2. CSS FOR STREAMLIT GENERATOR (Backend) ---
+# --- 2. CSS STYLING (BACKEND GENERATOR) ---
 ST_STYLE = """
 <style>
     .stMultiSelect span[data-baseweb="tag"] {
@@ -24,227 +24,121 @@ ST_STYLE = """
     div.stButton > button[kind="primary"]:hover {
         background-color: #45a049 !important; border-color: #45a049 !important;
     }
-    .input-row { padding: 10px 0; border-bottom: 1px solid #f0f2f6; }
 </style>
 """
 
-# --- 3. RICH HTML TEMPLATE (Frontend for Client) ---
-# This is a full responsive web page design
-QUOTE_HTML_TEMPLATE = """
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Proposal for {client}</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
-    <style>
-        :root {{
-            --primary: #2E7D32;
-            --bg-color: #f8f9fa;
-            --card-bg: #ffffff;
-            --text-main: #1f2937;
-            --text-muted: #6b7280;
-        }}
-        
-        body {{
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-color);
-            margin: 0;
-            padding: 0;
-            color: var(--text-main);
-            line-height: 1.5;
-        }}
+# --- 3. CSS FOR FULL SCREEN VIEWER (THE "PUBLIC PAGE" LOOK) ---
+VIEWER_CSS = """
+<style>
+    /* 1. HIDE STREAMLIT UI ELEMENTS */
+    [data-testid="stSidebar"], [data-testid="stHeader"], footer, #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
+    }
+    
+    /* 2. REMOVE PADDING & MAX WIDTH */
+    .block-container {
+        padding: 0 !important;
+        margin: 0 !important;
+        max-width: 100% !important;
+    }
+    .stApp {
+        background-color: #f8f9fa; /* Light Grey Background */
+    }
 
-        /* HERO SECTION */
-        .hero {{
-            background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%);
-            color: white;
-            padding: 40px 20px 80px;
-            text-align: center;
-        }}
-        .hero h1 {{ margin: 0; font-size: 28px; font-weight: 700; }}
-        .hero p {{ margin: 10px 0 0; opacity: 0.9; font-size: 16px; }}
-        .badge {{ 
-            background: rgba(255,255,255,0.2); 
-            padding: 4px 12px; 
-            border-radius: 20px; 
-            font-size: 12px; 
-            letter-spacing: 1px;
-            text-transform: uppercase;
-        }}
+    /* 3. CUSTOM QUOTE STYLES */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    
+    .quote-page {
+        font-family: 'Inter', sans-serif;
+        color: #1f2937;
+        line-height: 1.5;
+        padding-bottom: 60px;
+    }
 
-        /* MAIN CONTAINER (Overlaps Hero) */
-        .container {{
-            max-width: 1000px;
-            margin: -50px auto 40px;
-            padding: 0 20px;
-            position: relative;
-            z-index: 10;
-        }}
+    /* HERO */
+    .hero-section {
+        background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%);
+        color: white;
+        padding: 60px 20px 100px;
+        text-align: center;
+    }
+    .hero-section h1 { margin: 0; font-size: 32px; font-weight: 700; color: white !important; }
+    .hero-section p { color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 10px; }
+    
+    /* MAIN CARD */
+    .main-container {
+        max-width: 1000px;
+        margin: -60px auto 0;
+        padding: 0 20px;
+        position: relative;
+        z-index: 10;
+    }
+    
+    .client-card {
+        background: white;
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 20px;
+        margin-bottom: 40px;
+        border: 1px solid #eaeaea;
+    }
+    .label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
+    .value { font-size: 16px; font-weight: 700; color: #111; margin-top: 4px; }
 
-        /* CLIENT INFO CARD */
-        .client-card {{
-            background: white;
-            border-radius: 12px;
-            padding: 25px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 20px;
-            margin-bottom: 40px;
-            border: 1px solid #eaeaea;
-        }}
-        .info-item .label {{ font-size: 12px; color: var(--text-muted); text-transform: uppercase; font-weight: 600; margin-bottom: 4px; }}
-        .info-item .value {{ font-size: 16px; font-weight: 700; color: var(--text-main); }}
+    /* SECTIONS */
+    .section-header {
+        font-size: 20px; font-weight: 700; color: #1f2937; margin: 40px 0 20px;
+        padding-bottom: 10px; border-bottom: 2px solid #eee;
+    }
 
-        /* SECTION TITLES */
-        .section-title {{
-            text-align: center;
-            font-size: 22px;
-            font-weight: 700;
-            margin-bottom: 25px;
-            color: var(--text-main);
-            position: relative;
-            display: inline-block;
-            width: 100%;
-        }}
-        
-        /* PLAN CARDS GRID */
-        .plans-grid {{
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 25px;
-            margin-bottom: 50px;
-        }}
-        
-        .plan-card {{
-            background: white;
-            border-radius: 16px;
-            overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02), 0 10px 15px rgba(0,0,0,0.03);
-            transition: transform 0.2s, box-shadow 0.2s;
-            border: 1px solid #f0f0f0;
-            display: flex;
-            flex-direction: column;
-        }}
-        .plan-card:hover {{
-            transform: translateY(-5px);
-            box-shadow: 0 20px 25px rgba(0,0,0,0.1);
-            border-color: var(--primary);
-        }}
-        
-        .card-header {{
-            background: #f1f8e9;
-            padding: 20px;
-            border-bottom: 1px solid #e0e0e0;
-        }}
-        .plan-name {{ font-size: 18px; font-weight: 700; color: #1b5e20; }}
-        
-        .card-body {{ padding: 25px; flex-grow: 1; }}
-        
-        .premium-box {{ 
-            margin-bottom: 20px; 
-            padding-bottom: 20px; 
-            border-bottom: 1px dashed #e0e0e0; 
-        }}
-        .premium-label {{ font-size: 12px; color: var(--text-muted); font-weight: 600; }}
-        .premium-value {{ font-size: 24px; font-weight: 800; color: #d32f2f; white-space: pre-wrap; }}
-        
-        .notes-box {{ font-size: 14px; color: #555; line-height: 1.6; white-space: pre-wrap; }}
-        .notes-box ul {{ margin: 0; padding-left: 20px; }}
+    /* PLAN CARDS */
+    .plans-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 25px;
+    }
+    .plan-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        border: 1px solid #e5e7eb;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
+        transition: transform 0.2s;
+    }
+    .plan-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.1); }
+    
+    .card-top { background: #f0fdf4; padding: 20px; border-bottom: 1px solid #e5e7eb; }
+    .card-title { font-size: 18px; font-weight: 700; color: #166534; }
+    
+    .card-content { padding: 25px; }
+    .price-tag { font-size: 22px; font-weight: 800; color: #dc2626; margin-bottom: 15px; }
+    .notes-text { font-size: 14px; color: #4b5563; background: #fffbeb; padding: 15px; border-radius: 8px; line-height: 1.6; }
 
-        /* COMPARISON TABLE */
-        .table-wrapper {{
-            background: white;
-            border-radius: 12px;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-            overflow-x: auto; /* Scroll on mobile */
-            border: 1px solid #eaeaea;
-        }}
-        table {{ width: 100%; border-collapse: collapse; min-width: 600px; }}
-        th {{ 
-            background: #f8f9fa; 
-            text-align: left; 
-            padding: 15px 20px; 
-            font-size: 13px; 
-            color: var(--text-muted); 
-            text-transform: uppercase;
-            border-bottom: 2px solid #eaeaea;
-        }}
-        td {{ 
-            padding: 15px 20px; 
-            border-bottom: 1px solid #eaeaea; 
-            font-size: 14px; 
-            color: var(--text-main);
-        }}
-        tr:last-child td {{ border-bottom: none; }}
-        
-        /* FOOTER */
-        .footer {{
-            text-align: center;
-            margin-top: 50px;
-            padding: 20px;
-            color: var(--text-muted);
-            font-size: 14px;
-        }}
-        
-        /* MOBILE TWEAKS */
-        @media (max-width: 768px) {{
-            .hero {{ padding-bottom: 60px; }}
-            .container {{ margin-top: -40px; }}
-            .client-card {{ grid-template-columns: 1fr 1fr; gap: 15px; }}
-            .section-title {{ font-size: 20px; }}
-        }}
-    </style>
-</head>
-<body>
-
-    <div class="hero">
-        <span class="badge">Health Insurance Proposal</span>
-        <h1 style="margin-top: 10px;">Quote for {client}</h1>
-        <p>Prepared by {rm} on {date}</p>
-    </div>
-
-    <div class="container">
-        
-        <div class="client-card">
-            <div class="info-item">
-                <div class="label">Quote Reference</div>
-                <div class="value">{quote_id}</div>
-            </div>
-            <div class="info-item">
-                <div class="label">Client Name</div>
-                <div class="value">{client}</div>
-            </div>
-            <div class="info-item">
-                <div class="label">Location</div>
-                <div class="value">{city}</div>
-            </div>
-            <div class="info-item">
-                <div class="label">Policy Type</div>
-                <div class="value">{type}</div>
-            </div>
-        </div>
-
-        <div class="section-title">Recommended Plans</div>
-        <div class="plans-grid">
-            {plans_html}
-        </div>
-
-        <div class="section-title">Feature Comparison</div>
-        <div class="table-wrapper">
-            {table_html}
-        </div>
-
-        <div class="footer">
-            <p>Need changes? Contact {rm} for assistance.</p>
-        </div>
-
-    </div>
-
-</body>
-</html>
+    /* TABLE */
+    .table-container {
+        background: white; border-radius: 12px; overflow: hidden;
+        border: 1px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    table { width: 100%; border-collapse: collapse; }
+    th { background: #f9fafb; padding: 15px; text-align: left; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
+    td { padding: 15px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #374151; vertical-align: top; }
+    
+    /* PRINT */
+    @media print {
+        [data-testid="stAppViewContainer"] { overflow: visible !important; }
+        .hero-section { padding: 20px; color: #000; background: none; text-align: left; border-bottom: 2px solid #4CAF50; }
+        .hero-section h1 { color: #2E7D32 !important; font-size: 24px; }
+        .hero-section p { color: #666; }
+        .main-container { margin-top: 0; max-width: 100%; box-shadow: none; }
+        .client-card { box-shadow: none; border: 1px solid #ccc; }
+        .plan-card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 20px; }
+        .no-print { display: none; }
+    }
+</style>
 """
 
 # --- 4. GOOGLE SHEETS HELPERS ---
@@ -272,10 +166,8 @@ def get_sheet_and_rows():
             for i in range(1, 6): 
                 headers.extend([f"Plan_{i}", f"Prem_{i}", f"Note_{i}"])
             ws.append_row(headers)
-        
         all_values = ws.get_all_values()
-        row_count = len(all_values)
-        return ws, row_count, all_values
+        return ws, len(all_values), all_values
     except Exception as e:
         st.error(f"❌ Sheet Error: {e}")
         return None, 0, []
@@ -310,13 +202,8 @@ def generate_custom_id(rm_name, row_count):
 def log_quote_to_sheet(ws, quote_data):
     try:
         row = [
-            quote_data['quote_id'],
-            quote_data['date'],
-            quote_data['rm'],
-            quote_data['client'],
-            quote_data['city'],
-            quote_data['type'],
-            quote_data['crm_link']
+            quote_data['quote_id'], quote_data['date'], quote_data['rm'],
+            quote_data['client'], quote_data['city'], quote_data['type'], quote_data['crm_link']
         ]
         plans = quote_data['plans']
         for i in range(5):
@@ -324,110 +211,133 @@ def log_quote_to_sheet(ws, quote_data):
                 p = plans[i]
                 row.extend([p['Plan Name'], p['Premium'], p['Notes']])
             else:
-                row.extend(["", "", ""]) 
+                row.extend(["", "", ""])
         ws.append_row(row)
         return True
     except Exception as e:
         st.error(f"❌ Log Error: {e}")
         return False
 
-# --- 5. VIEWER MODE ---
+# --- 5. VIEWER MODE (FULL SCREEN) ---
 def render_quote_viewer(quote_id):
-    st.set_page_config(page_title=f"Quote {quote_id}", layout="centered", initial_sidebar_state="collapsed")
+    # Hide default title/icon to ensure we control the full page
+    st.set_page_config(page_title=f"Quote {quote_id}", layout="wide", initial_sidebar_state="collapsed")
     
-    with st.spinner("Fetching Proposal..."):
-        ws, _, all_values = get_sheet_and_rows()
-        if not ws or not all_values: return
-        
-        headers = all_values[0]
-        try: q_idx = headers.index("Quote_ID")
-        except: q_idx = 0 
+    # 1. FETCH DATA
+    ws, _, all_values = get_sheet_and_rows()
+    if not ws or not all_values: return
+    
+    headers = all_values[0]
+    try: q_idx = headers.index("Quote_ID")
+    except: q_idx = 0 
 
-        target_row = None
-        for row in all_values:
-            if len(row) > q_idx and str(row[q_idx]).strip() == str(quote_id).strip():
-                target_row = row
-                break
-        
-        if not target_row:
-            st.error("Quote not found.")
-            return
+    target_row = None
+    for row in all_values:
+        if len(row) > q_idx and str(row[q_idx]).strip() == str(quote_id).strip():
+            target_row = row
+            break
+    
+    if not target_row:
+        st.error("Quote not found.")
+        return
 
-        def safe_get(idx): return target_row[idx] if idx < len(target_row) else ""
+    def safe_get(idx): return target_row[idx] if idx < len(target_row) else ""
 
-        # Map Basic Info
-        # Assumes Header Order: Quote_ID(0), Date(1), RM(2), Client(3), City(4), Type(5), CRM(6)
-        date_val = safe_get(1)
-        rm_val = safe_get(2)
-        client_val = safe_get(3)
-        city_val = safe_get(4)
-        type_val = safe_get(5)
+    # Map Fields
+    date_val = safe_get(1)
+    rm_val = safe_get(2)
+    client_val = safe_get(3)
+    city_val = safe_get(4)
+    type_val = safe_get(5)
 
-        # Map Plans (Starting Index 7)
-        plans_html = ""
-        active_plans = []
-        
-        for i in range(5):
-            base_idx = 7 + (i * 3)
-            p_name = safe_get(base_idx)
-            if p_name and p_name.strip():
-                p_prem = safe_get(base_idx + 1).replace('\n', '<br>')
-                p_note = safe_get(base_idx + 2).replace('\n', '<br>') # Keeps line breaks
-                active_plans.append(p_name)
-                
-                plans_html += f"""
-                <div class="plan-card">
-                    <div class="card-header">
-                        <div class="plan-name">{p_name}</div>
-                    </div>
-                    <div class="card-body">
-                        <div class="premium-box">
-                            <div class="premium-label">PREMIUM ESTIMATE</div>
-                            <div class="premium-value">{p_prem}</div>
-                        </div>
-                        <div class="notes-box">
-                            <strong>Key Highlights:</strong><br>
-                            {p_note}
-                        </div>
+    # Map Plans
+    plans_html = ""
+    active_plans = []
+    
+    for i in range(5):
+        base_idx = 7 + (i * 3)
+        p_name = safe_get(base_idx)
+        if p_name and p_name.strip():
+            p_prem = safe_get(base_idx + 1).replace('\n', '<br>')
+            p_note = safe_get(base_idx + 2).replace('\n', '<br>')
+            active_plans.append(p_name)
+            
+            plans_html += f"""
+            <div class="plan-card">
+                <div class="card-top">
+                    <div class="card-title">{p_name}</div>
+                </div>
+                <div class="card-content">
+                    <div class="price-tag">{p_prem}</div>
+                    <div class="notes-text">
+                        <strong>Highlights:</strong><br>{p_note}
                     </div>
                 </div>
-                """
+            </div>
+            """
 
-        # Map Table
-        _, df_plans = load_master_data()
-        table_html = ""
-        if df_plans is not None and not df_plans.empty and active_plans:
-            all_cols = list(df_plans.columns)
-            valid_plans = [p for p in active_plans if p in df_plans.columns]
-            if valid_plans:
-                cols = [all_cols[1]] + valid_plans
-                comp_df = df_plans[cols].copy()
-                comp_df.rename(columns={all_cols[1]: "Feature"}, inplace=True)
-                table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
-                table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
+    # Map Table
+    _, df_plans = load_master_data()
+    table_html = ""
+    if df_plans is not None and not df_plans.empty and active_plans:
+        all_cols = list(df_plans.columns)
+        valid_plans = [p for p in active_plans if p in df_plans.columns]
+        if valid_plans:
+            cols = [all_cols[1]] + valid_plans
+            comp_df = df_plans[cols].copy()
+            comp_df.rename(columns={all_cols[1]: "Feature"}, inplace=True)
+            table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
+            table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
 
-        # Render Full Page
-        full_html = QUOTE_HTML_TEMPLATE.format(
-            quote_id=quote_id,
-            date=date_val,
-            rm=rm_val,
-            client=client_val,
-            city=city_val,
-            type=type_val,
-            plans_html=plans_html,
-            table_html=table_html
-        )
-        
-        st.components.v1.html(full_html, height=1200, scrolling=True)
-        st.markdown(f'<div style="text-align:center; margin-top:20px;"><a href="{APP_BASE_URL}" target="_self" style="text-decoration:none; color:#2E7D32; font-weight:bold;">⬅️ Create New Quote</a></div>', unsafe_allow_html=True)
+    # 2. RENDER FULL SCREEN HTML (Directly injected, No Iframe)
+    st.markdown(VIEWER_CSS, unsafe_allow_html=True) # Inject CSS to hide UI
+    
+    st.markdown(f"""
+    <div class="quote-page">
+        <div class="hero-section">
+            <h1>Health Insurance Proposal</h1>
+            <p>Prepared for <strong>{client_val}</strong> by {rm_val} | {date_val}</p>
+        </div>
+
+        <div class="main-container">
+            
+            <div class="client-card">
+                <div><div class="label">Quote Reference</div><div class="value">{quote_id}</div></div>
+                <div><div class="label">Client Name</div><div class="value">{client_val}</div></div>
+                <div><div class="label">City / Location</div><div class="value">{city_val}</div></div>
+                <div><div class="label">Policy Type</div><div class="value">{type_val}</div></div>
+            </div>
+
+            <div class="section-header">Recommended Options</div>
+            <div class="plans-grid">
+                {plans_html}
+            </div>
+
+            <div class="section-header">Feature Comparison</div>
+            <div class="table-container">
+                {table_html}
+            </div>
+
+            <div style="text-align:center; margin-top:50px;" class="no-print">
+                <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:15px 30px; font-size:16px; font-weight:bold; border-radius:50px; cursor:pointer; box-shadow:0 4px 10px rgba(76,175,80,0.3);">
+                    🖨️ Download / Print PDF
+                </button>
+                <br><br>
+                <a href="{APP_BASE_URL}" style="color:#6b7280; text-decoration:none; font-size:14px;">&larr; Create New Quote</a>
+            </div>
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 
-# --- 6. MAIN GENERATOR ---
+# --- 6. MAIN APP LOGIC ---
 def main():
+    # 1. ROUTING: If ?quote_id= exists, show Viewer
     if "quote_id" in st.query_params:
         render_quote_viewer(st.query_params["quote_id"])
         return
 
+    # 2. GENERATOR UI
     st.set_page_config(page_title="Quote Generator", page_icon="📝", layout="wide")
     st.markdown(ST_STYLE, unsafe_allow_html=True)
     st.title("📝 Health Insurance Quote Generator")
@@ -460,7 +370,7 @@ def main():
             
             if sel_plans:
                 if len(sel_plans) > 5:
-                    st.warning("⚠️ You can select a maximum of 5 plans.")
+                    st.warning("⚠️ Max 5 plans.")
                 
                 st.divider()
                 st.subheader("3. Premiums & Notes")
@@ -499,13 +409,8 @@ def main():
                                 })
                             
                             quote_data = {
-                                "quote_id": quote_id,
-                                "date": today_str,
-                                "rm": sel_rm,
-                                "client": client_name,
-                                "city": city,
-                                "type": pol_type,
-                                "crm_link": crm_link,
+                                "quote_id": quote_id, "date": today_str, "rm": sel_rm,
+                                "client": client_name, "city": city, "type": pol_type, "crm_link": crm_link,
                                 "plans": final_plans
                             }
                             
@@ -514,17 +419,17 @@ def main():
                                 st.success(f"✅ Quote **{quote_id}** Generated!")
                                 st.markdown(f"""
                                 <a href="{target_url}" target="_blank" style="text-decoration:none;">
-                                    <div style="background-color:#4CAF50; color:white; padding:15px; border-radius:5px; text-align:center; font-weight:bold; font-size:18px; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
-                                        🔗 OPEN DIGITAL QUOTE: {quote_id}
+                                    <div style="background-color:#4CAF50; color:white; padding:15px; border-radius:8px; text-align:center; font-weight:bold; font-size:18px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+                                        🔗 OPEN DIGITAL QUOTE
                                     </div>
                                 </a>
                                 """, unsafe_allow_html=True)
                             else:
-                                st.error("Failed to log quote.")
+                                st.error("Log failed.")
             else:
-                st.info("👈 Select plans to proceed.")
+                st.info("👈 Select plans.")
     else:
-        st.error("❌ Data load failed.")
+        st.error("Data load failed.")
 
 if __name__ == "__main__":
     main()
