@@ -3,14 +3,15 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import datetime
-import base64
 
 # --- 1. CONFIGURATION ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" # 🚨 KEEP YOUR SHEET URL HERE
 APP_BASE_URL = "https://moneyplustools.streamlit.app" 
 
-# --- 2. CSS STYLING (BACKEND GENERATOR) ---
-ST_STYLE = """
+# --- 2. CSS STYLES ---
+
+# A. Generator Mode Styles (Green Buttons, Tags)
+GENERATOR_CSS = """
 <style>
     .stMultiSelect span[data-baseweb="tag"] {
         background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important;
@@ -27,54 +28,65 @@ ST_STYLE = """
 </style>
 """
 
-# --- 3. CSS FOR FULL SCREEN VIEWER (THE "PUBLIC PAGE" LOOK) ---
+# B. Viewer Mode Styles (Hides Streamlit UI for "Website" Look)
 VIEWER_CSS = """
 <style>
-    /* 1. HIDE STREAMLIT UI ELEMENTS */
-    [data-testid="stSidebar"], [data-testid="stHeader"], footer, #MainMenu {
+    /* 1. HIDE STREAMLIT CHROME (The "Window" parts) */
+    [data-testid="stHeader"], 
+    [data-testid="stSidebar"], 
+    [data-testid="stToolbar"], 
+    footer, 
+    #MainMenu {
         display: none !important;
         visibility: hidden !important;
+        height: 0 !important;
     }
     
-    /* 2. REMOVE PADDING & MAX WIDTH */
+    /* 2. REMOVE PADDING (Full Screen) */
     .block-container {
-        padding: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        padding-left: 0 !important;
+        padding-right: 0 !important;
         margin: 0 !important;
         max-width: 100% !important;
     }
     .stApp {
-        background-color: #f8f9fa; /* Light Grey Background */
+        background-color: #f8f9fa; /* Match Page BG */
+        margin-top: -50px; /* Pull up to cover any remaining gap */
     }
 
-    /* 3. CUSTOM QUOTE STYLES */
+    /* 3. CUSTOM TYPOGRAPHY & LAYOUT */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
     
     .quote-page {
         font-family: 'Inter', sans-serif;
         color: #1f2937;
         line-height: 1.5;
-        padding-bottom: 60px;
+        width: 100%;
     }
 
     /* HERO */
     .hero-section {
         background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%);
         color: white;
-        padding: 60px 20px 100px;
+        padding: 80px 20px 100px;
         text-align: center;
+        width: 100%;
     }
     .hero-section h1 { margin: 0; font-size: 32px; font-weight: 700; color: white !important; }
     .hero-section p { color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 10px; }
     
-    /* MAIN CARD */
+    /* CONTAINER */
     .main-container {
         max-width: 1000px;
         margin: -60px auto 0;
-        padding: 0 20px;
+        padding: 0 20px 60px;
         position: relative;
         z-index: 10;
     }
     
+    /* CARDS */
     .client-card {
         background: white;
         border-radius: 12px;
@@ -95,7 +107,7 @@ VIEWER_CSS = """
         padding-bottom: 10px; border-bottom: 2px solid #eee;
     }
 
-    /* PLAN CARDS */
+    /* PLAN GRID */
     .plans-grid {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
@@ -122,26 +134,24 @@ VIEWER_CSS = """
     .table-container {
         background: white; border-radius: 12px; overflow: hidden;
         border: 1px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        overflow-x: auto;
     }
-    table { width: 100%; border-collapse: collapse; }
+    table { width: 100%; border-collapse: collapse; min-width: 600px; }
     th { background: #f9fafb; padding: 15px; text-align: left; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
     td { padding: 15px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #374151; vertical-align: top; }
     
     /* PRINT */
     @media print {
-        [data-testid="stAppViewContainer"] { overflow: visible !important; }
         .hero-section { padding: 20px; color: #000; background: none; text-align: left; border-bottom: 2px solid #4CAF50; }
         .hero-section h1 { color: #2E7D32 !important; font-size: 24px; }
-        .hero-section p { color: #666; }
-        .main-container { margin-top: 0; max-width: 100%; box-shadow: none; }
-        .client-card { box-shadow: none; border: 1px solid #ccc; }
-        .plan-card { break-inside: avoid; border: 1px solid #ccc; box-shadow: none; margin-bottom: 20px; }
+        .main-container { margin-top: 0; max-width: 100%; box-shadow: none; padding: 0; }
+        .client-card, .plan-card, .table-container { box-shadow: none; border: 1px solid #ccc; margin-bottom: 20px; break-inside: avoid; }
         .no-print { display: none; }
     }
 </style>
 """
 
-# --- 4. GOOGLE SHEETS HELPERS ---
+# --- 3. GOOGLE SHEETS HELPERS ---
 @st.cache_resource
 def get_gspread_client():
     try:
@@ -218,132 +228,107 @@ def log_quote_to_sheet(ws, quote_data):
         st.error(f"❌ Log Error: {e}")
         return False
 
-# --- 5. VIEWER MODE (FULL SCREEN) ---
+# --- 4. VIEWER MODE ---
 def render_quote_viewer(quote_id):
-    # Hide default title/icon to ensure we control the full page
-    st.set_page_config(page_title=f"Quote {quote_id}", layout="wide", initial_sidebar_state="collapsed")
+    # 1. Inject CSS to Hide UI
+    st.markdown(VIEWER_CSS, unsafe_allow_html=True)
     
-    # 1. FETCH DATA
-    ws, _, all_values = get_sheet_and_rows()
-    if not ws or not all_values: return
-    
-    headers = all_values[0]
-    try: q_idx = headers.index("Quote_ID")
-    except: q_idx = 0 
+    # 2. Fetch Data
+    with st.spinner("Loading Proposal..."):
+        ws, _, all_values = get_sheet_and_rows()
+        if not ws: return
+        
+        headers = all_values[0]
+        try: q_idx = headers.index("Quote_ID")
+        except: q_idx = 0 
 
-    target_row = None
-    for row in all_values:
-        if len(row) > q_idx and str(row[q_idx]).strip() == str(quote_id).strip():
-            target_row = row
-            break
-    
-    if not target_row:
-        st.error("Quote not found.")
-        return
+        target_row = None
+        for row in all_values:
+            if len(row) > q_idx and str(row[q_idx]).strip() == str(quote_id).strip():
+                target_row = row
+                break
+        
+        if not target_row:
+            st.error(f"Quote {quote_id} not found.")
+            return
 
-    def safe_get(idx): return target_row[idx] if idx < len(target_row) else ""
+        def safe_get(idx): return target_row[idx] if idx < len(target_row) else ""
 
-    # Map Fields
-    date_val = safe_get(1)
-    rm_val = safe_get(2)
-    client_val = safe_get(3)
-    city_val = safe_get(4)
-    type_val = safe_get(5)
+        # Map Data
+        date_val, rm_val = safe_get(1), safe_get(2)
+        client_val, city_val = safe_get(3), safe_get(4)
+        type_val = safe_get(5)
 
-    # Map Plans
-    plans_html = ""
-    active_plans = []
-    
-    for i in range(5):
-        base_idx = 7 + (i * 3)
-        p_name = safe_get(base_idx)
-        if p_name and p_name.strip():
-            p_prem = safe_get(base_idx + 1).replace('\n', '<br>')
-            p_note = safe_get(base_idx + 2).replace('\n', '<br>')
-            active_plans.append(p_name)
-            
-            plans_html += f"""
-            <div class="plan-card">
-                <div class="card-top">
-                    <div class="card-title">{p_name}</div>
-                </div>
-                <div class="card-content">
-                    <div class="price-tag">{p_prem}</div>
-                    <div class="notes-text">
-                        <strong>Highlights:</strong><br>{p_note}
+        # Build Plans HTML
+        plans_html = ""
+        active_plans = []
+        for i in range(5):
+            base = 7 + (i * 3)
+            p_name = safe_get(base)
+            if p_name and p_name.strip():
+                p_prem = safe_get(base + 1).replace('\n', '<br>')
+                p_note = safe_get(base + 2).replace('\n', '<br>')
+                active_plans.append(p_name)
+                plans_html += f"""
+                <div class="plan-card">
+                    <div class="card-top"><div class="card-title">{p_name}</div></div>
+                    <div class="card-content">
+                        <div class="price-tag">{p_prem}</div>
+                        <div class="notes-text"><strong>Highlights:</strong><br>{p_note}</div>
                     </div>
                 </div>
+                """
+
+        # Build Table HTML
+        table_html = ""
+        _, df_plans = load_master_data()
+        if df_plans is not None and not df_plans.empty and active_plans:
+            all_cols = list(df_plans.columns)
+            valid_plans = [p for p in active_plans if p in df_plans.columns]
+            if valid_plans:
+                cols = [all_cols[1]] + valid_plans
+                comp_df = df_plans[cols].copy()
+                comp_df.rename(columns={all_cols[1]: "Feature"}, inplace=True)
+                table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
+                table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
+
+        # 3. Render Page
+        st.markdown(f"""
+        <div class="quote-page">
+            <div class="hero-section">
+                <h1>Health Insurance Proposal</h1>
+                <p>Prepared for <strong>{client_val}</strong> by {rm_val} | {date_val}</p>
             </div>
-            """
-
-    # Map Table
-    _, df_plans = load_master_data()
-    table_html = ""
-    if df_plans is not None and not df_plans.empty and active_plans:
-        all_cols = list(df_plans.columns)
-        valid_plans = [p for p in active_plans if p in df_plans.columns]
-        if valid_plans:
-            cols = [all_cols[1]] + valid_plans
-            comp_df = df_plans[cols].copy()
-            comp_df.rename(columns={all_cols[1]: "Feature"}, inplace=True)
-            table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
-            table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
-
-    # 2. RENDER FULL SCREEN HTML (Directly injected, No Iframe)
-    st.markdown(VIEWER_CSS, unsafe_allow_html=True) # Inject CSS to hide UI
-    
-    st.markdown(f"""
-    <div class="quote-page">
-        <div class="hero-section">
-            <h1>Health Insurance Proposal</h1>
-            <p>Prepared for <strong>{client_val}</strong> by {rm_val} | {date_val}</p>
-        </div>
-
-        <div class="main-container">
-            
-            <div class="client-card">
-                <div><div class="label">Quote Reference</div><div class="value">{quote_id}</div></div>
-                <div><div class="label">Client Name</div><div class="value">{client_val}</div></div>
-                <div><div class="label">City / Location</div><div class="value">{city_val}</div></div>
-                <div><div class="label">Policy Type</div><div class="value">{type_val}</div></div>
-            </div>
-
-            <div class="section-header">Recommended Options</div>
-            <div class="plans-grid">
-                {plans_html}
-            </div>
-
-            <div class="section-header">Feature Comparison</div>
-            <div class="table-container">
-                {table_html}
-            </div>
-
-            <div style="text-align:center; margin-top:50px;" class="no-print">
-                <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:15px 30px; font-size:16px; font-weight:bold; border-radius:50px; cursor:pointer; box-shadow:0 4px 10px rgba(76,175,80,0.3);">
-                    🖨️ Download / Print PDF
-                </button>
-                <br><br>
-                <a href="{APP_BASE_URL}" style="color:#6b7280; text-decoration:none; font-size:14px;">&larr; Create New Quote</a>
+            <div class="main-container">
+                <div class="client-card">
+                    <div><div class="label">Reference</div><div class="value">{quote_id}</div></div>
+                    <div><div class="label">Client</div><div class="value">{client_val}</div></div>
+                    <div><div class="label">City</div><div class="value">{city_val}</div></div>
+                    <div><div class="label">Type</div><div class="value">{type_val}</div></div>
+                </div>
+                
+                <div class="section-header">Recommended Options</div>
+                <div class="plans-grid">{plans_html}</div>
+                
+                <div class="section-header">Feature Comparison</div>
+                <div class="table-container">{table_html}</div>
+                
+                <div style="text-align:center; margin-top:50px;" class="no-print">
+                    <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:15px 30px; font-size:16px; font-weight:bold; border-radius:50px; cursor:pointer; box-shadow:0 4px 10px rgba(76,175,80,0.3);">🖨️ Download PDF</button>
+                    <br><br>
+                    <a href="{APP_BASE_URL}" style="color:#6b7280; text-decoration:none; font-size:14px;">&larr; Create New Quote</a>
+                </div>
             </div>
         </div>
-    </div>
-    """, unsafe_allow_html=True)
+        """, unsafe_allow_html=True)
 
-
-# --- 6. MAIN APP LOGIC ---
-def main():
-    # 1. ROUTING: If ?quote_id= exists, show Viewer
-    if "quote_id" in st.query_params:
-        render_quote_viewer(st.query_params["quote_id"])
-        return
-
-    # 2. GENERATOR UI
-    st.set_page_config(page_title="Quote Generator", page_icon="📝", layout="wide")
-    st.markdown(ST_STYLE, unsafe_allow_html=True)
+# --- 5. GENERATOR MODE ---
+def render_generator():
+    st.markdown(GENERATOR_CSS, unsafe_allow_html=True)
     st.title("📝 Health Insurance Quote Generator")
 
     if "YOUR_FULL_URL_HERE" in SHEET_URL:
-        st.warning("⚠️ Please update `SHEET_URL` in code.")
+        st.warning("⚠️ Update SHEET_URL in code.")
         return
 
     with st.spinner("Syncing Master Data..."):
@@ -361,7 +346,6 @@ def main():
             crm_link = st.text_input("CRM Lead URL", placeholder="Optional")
 
         st.divider()
-
         st.subheader("2. Select Plans")
         all_cols = list(df_plans.columns)
         if len(all_cols) > 2:
@@ -369,9 +353,7 @@ def main():
             sel_plans = st.multiselect("Compare Plans:", options=plan_opts)
             
             if sel_plans:
-                if len(sel_plans) > 5:
-                    st.warning("⚠️ Max 5 plans.")
-                
+                if len(sel_plans) > 5: st.warning("⚠️ Max 5 plans.")
                 st.divider()
                 st.subheader("3. Premiums & Notes")
                 user_inputs = {}
@@ -428,8 +410,18 @@ def main():
                                 st.error("Log failed.")
             else:
                 st.info("👈 Select plans.")
+
+# --- 6. MAIN APP LOGIC ---
+def main():
+    # 🚨 CRITICAL: THIS MUST BE THE FIRST STREAMLIT COMMAND
+    # We set layout="wide" globally. We control the rest via CSS.
+    st.set_page_config(page_title="Quote Tool", page_icon="📝", layout="wide", initial_sidebar_state="collapsed")
+
+    # Routing
+    if "quote_id" in st.query_params:
+        render_quote_viewer(st.query_params["quote_id"])
     else:
-        st.error("Data load failed.")
+        render_generator()
 
 if __name__ == "__main__":
     main()
