@@ -5,7 +5,8 @@ from google.oauth2.service_account import Credentials
 
 # --- 1. CONFIGURATION ---
 # 🚨 PASTE YOUR GOOGLE SHEET URL BELOW 🚨
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" 
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA"
+
 
 # --- 2. HELPER: CONNECT TO GOOGLE SHEETS ---
 @st.cache_resource
