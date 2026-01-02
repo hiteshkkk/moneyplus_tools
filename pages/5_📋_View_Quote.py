@@ -6,7 +6,7 @@ import datetime
 import base64
 
 # --- 1. CONFIGURATION ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" # 🚨 KEEP YOUR SHEET URL HERE
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
 APP_BASE_URL = "https://moneyplustools.streamlit.app" 
 
 # --- 2. CSS STYLING ---
