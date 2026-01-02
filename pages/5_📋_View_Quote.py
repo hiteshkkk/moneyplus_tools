@@ -1,180 +1,207 @@
 import streamlit as st
-from streamlit_gsheets import GSheetsConnection
 import pandas as pd
-import streamlit.components.v1 as components
+import gspread
+from google.oauth2.service_account import Credentials
+import datetime
 
-# --- 1. PAGE CONFIG (Public Access - No Password Check) ---
-st.set_page_config(page_title="View Quote", page_icon="📋", layout="wide")
+# --- 1. CONFIGURATION ---
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" # 🚨 KEEP YOUR SHEET URL HERE
 
-# --- 2. GET QUOTE ID FROM URL ---
-query_params = st.query_params
-quote_id = query_params.get("id", None)
-
-if not quote_id:
-    st.warning("⚠️ No Quote ID found. Please check the link.")
-    st.stop()
-
-# --- 3. CONNECT & FETCH DATA ---
-conn = st.connection("gsheets", type=GSheetsConnection)
-
-try:
-    # A. Fetch the specific Quote from 'Generated_Quotes'
-    # We read the whole sheet and filter. (Efficient enough for <5000 rows)
-    df_quotes = conn.read(worksheet="Generated_Quotes")
-    
-    # Filter by Quote ID
-    # Convert ID to string to be safe
-    df_quotes['Quote_ID'] = df_quotes['Quote_ID'].astype(str)
-    quote_data = df_quotes[df_quotes['Quote_ID'] == str(quote_id)]
-
-    if quote_data.empty:
-        st.error("❌ Invalid Quote ID. This quote does not exist.")
-        st.stop()
-    
-    # Get the single row as a dictionary
-    q = quote_data.iloc[0].fillna("")
-
-    # B. Identify Selected Plans
-    selected_plans = []
-    premiums = []
-    notes = []
-    
-    for i in range(1, 6):
-        p_name = q.get(f"Plan_{i}")
-        if p_name and str(p_name).strip() != "":
-            selected_plans.append(p_name)
-            premiums.append(q.get(f"Prem_{i}", ""))
-            notes.append(q.get(f"Note_{i}", ""))
-
-    # C. Fetch Features from 'Plans_Master' for the selected plans
-    # Header is row 3 (index 2)
-    df_master = conn.read(worksheet="Plans_Master", header=2)
-    
-    # 1. Get Feature Names (Col A, usually named 'Feature Code' or similar based on your image)
-    # Based on your image, Features are in Col B? "Plan Name >>" is C3. 
-    # Let's look for the column that holds features. Usually it's the first or second column.
-    # We will assume Column 1 (Index 1) is Feature Name based on your logic "Features in Col A... Plan names in Row 3"
-    # Actually, looking at your image, Col A is Feature Code (F2), Col B is "Room Rent".
-    
-    # Normalize column names to find the 'Feature Name' column
-    # We'll take the 2nd column (Index 1) as the Feature Name
-    feature_col_name = df_master.columns[1] 
-    
-    # Filter Master: Keep 'Feature Name' col and 'Selected Plan' cols
-    cols_to_keep = [feature_col_name] + [p for p in selected_plans if p in df_master.columns]
-    
-    df_features = df_master[cols_to_keep].copy()
-    
-    # Handle Blanks -> "Not Specified"
-    df_features = df_features.fillna("Not Specified")
-
-except Exception as e:
-    st.error(f"Error fetching data: {e}")
-    st.stop()
-
-# --- 4. RENDER UI (Responsive HTML) ---
-
-# CSS for nice printing and mobile view
-st.markdown("""
-<style>
-    @media print {
-        .stApp > header { display: none; }
-        .sidebar { display: none; }
-        .no-print { display: none; }
-        body { padding-top: 0; }
-    }
-    .quote-container {
-        font-family: 'Helvetica Neue', sans-serif;
-        max-width: 1000px;
-        margin: auto;
-        padding: 20px;
-        background: white;
-        border: 1px solid #eee;
-        border-radius: 8px;
-    }
-    .header-box {
-        background-color: #f8f9fa;
-        padding: 15px;
-        border-radius: 5px;
-        border-left: 5px solid #0056b3;
-        margin-bottom: 25px;
-    }
-    .client-title { font-size: 24px; font-weight: bold; color: #333; margin: 0; }
-    .meta-text { font-size: 14px; color: #666; margin-top: 5px; }
-    
-    /* Comparison Table Styling */
-    .comp-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-    .comp-table th { background: #004085; color: white; padding: 10px; text-align: left; font-size: 14px; }
-    .comp-table td { padding: 10px; border-bottom: 1px solid #ddd; font-size: 13px; vertical-align: top; }
-    .feature-name { font-weight: bold; color: #444; width: 25%; }
-    .highlight-row { background-color: #f9f9f9; }
-    
-    /* Premium Box */
-    .prem-box {
-        background: #e3f2fd;
-        padding: 10px;
-        border-radius: 4px;
-        font-weight: bold;
-        color: #0d47a1;
-        white-space: pre-line; /* Respects new lines in premium text */
-        font-size: 14px;
-    }
-    .note-text { font-size: 12px; color: #d32f2f; margin-top: 4px; font-style: italic; white-space: pre-line; }
-
-</style>
-""", unsafe_allow_html=True)
-
-# Generate HTML Table Rows
-table_html = "<table class='comp-table'>"
-# Header Row
-table_html += "<tr><th>Feature</th>"
-for p in selected_plans:
-    table_html += f"<th>{p}</th>"
-table_html += "</tr>"
-
-# Premium Row (Custom added at top)
-table_html += "<tr><td class='feature-name'>💰 PREMIUM ESTIMATE</td>"
-for i, p in enumerate(selected_plans):
-    table_html += f"<td><div class='prem-box'>{premiums[i]}</div><div class='note-text'>{notes[i]}</div></td>"
-table_html += "</tr>"
-
-# Data Rows from Master Sheet
-for index, row in df_features.iterrows():
-    f_name = row[feature_col_name]
-    # Skip rows where feature name is empty or just "Feature Code"
-    if str(f_name).strip() == "" or str(f_name) == "nan": continue
-    
-    table_html += "<tr>"
-    table_html += f"<td class='feature-name'>{f_name}</td>"
-    
-    for p in selected_plans:
-        val = row.get(p, "Not Specified")
-        table_html += f"<td>{val}</td>"
-    table_html += "</tr>"
-table_html += "</table>"
-
-# Final Layout
-st.markdown(f"""
-<div class="quote-container">
-    <div style="text-align:right;" class="no-print">
-        <button onclick="window.print()" style="padding:8px 15px; background:#0056b3; color:white; border:none; border-radius:4px; cursor:pointer;">🖨️ Print / Save PDF</button>
-    </div>
-    
-    <div class="header-box">
-        <div class="client-title">Health Insurance Proposal for {q['Client_Name']}</div>
-        <div class="meta-text">
-            <strong>Family:</strong> {q['Family']} &nbsp;|&nbsp; 
-            <strong>City:</strong> {q['City']} &nbsp;|&nbsp; 
-            <strong>Quote ID:</strong> {q['Quote_ID']} &nbsp;|&nbsp; 
-            <strong>Date:</strong> {q['Date']}
+# --- 2. HTML TEMPLATE (Clean & Printable) ---
+QUOTE_HTML_TEMPLATE = """
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quote {quote_id}</title>
+    <style>
+        body {{ font-family: 'Segoe UI', sans-serif; padding: 40px; background-color: #fff; color: #333; }}
+        .container {{ max-width: 950px; margin: 0 auto; }}
+        
+        /* Header */
+        .header {{ text-align: center; border-bottom: 3px solid #4CAF50; padding-bottom: 20px; margin-bottom: 30px; }}
+        .header h1 {{ margin: 0; color: #2E7D32; font-size: 28px; }}
+        .meta {{ font-size: 14px; color: #666; margin-top: 5px; }}
+        
+        /* Client Grid */
+        .client-grid {{ display: flex; gap: 15px; background: #f1f8e9; padding: 20px; border-radius: 8px; margin-bottom: 30px; border: 1px solid #c5e1a5; }}
+        .client-item {{ flex: 1; }}
+        .label {{ font-size: 11px; font-weight: bold; color: #558b2f; text-transform: uppercase; margin-bottom: 4px; }}
+        .value {{ font-size: 15px; font-weight: 600; color: #000; }}
+        
+        /* Plan Cards */
+        .plans-container {{ display: flex; flex-wrap: wrap; gap: 20px; margin-bottom: 40px; }}
+        .plan-card {{ flex: 1; min-width: 250px; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); background: #fff; }}
+        .plan-name {{ font-size: 18px; font-weight: bold; color: #1565C0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 10px; }}
+        .premium {{ font-size: 18px; font-weight: bold; color: #D32F2F; margin-bottom: 8px; white-space: pre-wrap; }}
+        .notes {{ font-size: 14px; color: #555; background: #fffbe6; padding: 12px; border-radius: 4px; white-space: pre-wrap; }}
+        
+        /* Comparison Table */
+        table {{ width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; }}
+        th {{ background-color: #e8f5e9; color: #2e7d32; text-align: left; padding: 10px; border: 1px solid #c8e6c9; }}
+        td {{ padding: 10px; border: 1px solid #eee; vertical-align: top; }}
+        
+        /* Print Button Hiding */
+        @media print {{ .no-print {{ display: none; }} }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Health Insurance Proposal</h1>
+            <div class="meta">Quote ID: {quote_id} | Date: {date}</div>
         </div>
-        <div style="font-size:12px; color:#888; margin-top:5px;">Prepared by: {q['RM_Name']} (Moneyplus)</div>
+        
+        <div class="client-grid">
+            <div class="client-item"><div class="label">RM Name</div><div class="value">{rm}</div></div>
+            <div class="client-item"><div class="label">Client</div><div class="value">{client}</div></div>
+            <div class="client-item"><div class="label">City</div><div class="value">{city}</div></div>
+            <div class="client-item"><div class="label">Type</div><div class="value">{type}</div></div>
+        </div>
+        
+        <h3>Recommended Options</h3>
+        <div class="plans-container">{plans_html}</div>
+        
+        <h3>Feature Comparison</h3>
+        {table_html}
+        
+        <div style="text-align:center; margin-top:40px; border-top:1px solid #eee; padding-top:20px;" class="no-print">
+            <button onclick="window.print()" style="padding:10px 20px; background:#4CAF50; color:white; border:none; border-radius:4px; font-size:16px; cursor:pointer;">🖨️ Save as PDF</button>
+        </div>
     </div>
+</body>
+</html>
+"""
 
-    {table_html}
+# --- 3. GOOGLE SHEETS HELPERS ---
+@st.cache_resource
+def get_gspread_client():
+    try:
+        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
+        creds_dict = st.secrets["gcp_service_account"]
+        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+        return gspread.authorize(creds)
+    except Exception as e:
+        st.error(f"❌ Auth Error: {e}")
+        return None
 
-    <div style="margin-top: 30px; font-size: 12px; color: #888; text-align: center;">
-        Disclaimer: Premiums are indicative. Features mentioned are subject to policy wordings.
-    </div>
-</div>
-""", unsafe_allow_html=True)
+@st.cache_data(ttl=600)
+def load_master_plans():
+    """Loads Plans Master to reconstruct the comparison table."""
+    client = get_gspread_client()
+    if not client: return None
+    try:
+        sheet = client.open_by_url(SHEET_URL)
+        ws_plans = sheet.worksheet("Plans_Master")
+        raw_plans = ws_plans.get_all_values()
+        if len(raw_plans) > 3:
+            # Headers are in Row 3 (index 2)
+            df_plans = pd.DataFrame(raw_plans[3:], columns=raw_plans[2])
+            return df_plans
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
+def get_quote_data(quote_id):
+    """Fetches the specific quote row from 'Generated_Quotes'."""
+    client = get_gspread_client()
+    if not client: return None
+    try:
+        sheet = client.open_by_url(SHEET_URL)
+        ws = sheet.worksheet("Generated_Quotes")
+        
+        # Get all data to find the row (Using get_all_records handles headers automatically)
+        records = ws.get_all_records() 
+        # Note: get_all_records uses Row 1 as keys. Ensure Row 1 has unique headers like 'Quote_ID', 'Plan_1', etc.
+        
+        for row in records:
+            if str(row.get("Quote_ID")) == str(quote_id):
+                return row
+        return None
+    except Exception as e:
+        st.error(f"❌ Error fetching quote: {e}")
+        return None
+
+# --- 4. MAIN VIEWER APP ---
+def main():
+    st.set_page_config(page_title="View Quote", layout="centered")
+
+    # 1. Get Quote ID from URL
+    if "quote_id" not in st.query_params:
+        st.error("⚠️ No Quote ID provided.")
+        st.info("Use the Quote Generator to create a link.")
+        return
+
+    quote_id = st.query_params["quote_id"]
+
+    # 2. Fetch Data
+    with st.spinner(f"Loading Quote {quote_id}..."):
+        quote_data = get_quote_data(quote_id)
+
+    if quote_data:
+        # --- 3. RECONSTRUCT HTML ---
+        
+        # A. Plans Logic (Flattened Columns -> HTML Cards)
+        plans_html = ""
+        active_plans = [] # To store plan names for the table comparison
+        
+        # Loop through Plan_1 to Plan_5
+        for i in range(1, 6):
+            p_name = quote_data.get(f"Plan_{i}")
+            if p_name:
+                p_prem = str(quote_data.get(f"Prem_{i}", "")).replace('\n', '<br>')
+                p_note = str(quote_data.get(f"Note_{i}", "")).replace('\n', '<br>')
+                
+                active_plans.append(p_name)
+                
+                plans_html += f"""
+                <div class="plan-card">
+                    <div class="plan-name">{p_name}</div>
+                    <div class="premium">{p_prem}</div>
+                    <div class="notes">{p_note}</div>
+                </div>
+                """
+
+        # B. Comparison Table Logic
+        table_html = ""
+        df_plans = load_master_plans()
+        
+        if df_plans is not None and not df_plans.empty and active_plans:
+            # 1. Get Features Column (Usually Col 1) and Selected Plans
+            # Standard Plan Master: [Code, Feature Name, Plan A, Plan B...]
+            all_cols = list(df_plans.columns)
+            
+            # Find columns that match our Active Plans
+            valid_cols = [col for col in active_plans if col in df_plans.columns]
+            
+            if valid_cols:
+                # Assuming 'Plan Name >>' or similar is the 2nd column (Index 1) for features
+                # Use the column name from your dataframe. Usually Index 1.
+                feature_col_name = all_cols[1] 
+                
+                cols_to_show = [feature_col_name] + valid_cols
+                comp_df = df_plans[cols_to_show].copy()
+                comp_df.rename(columns={feature_col_name: "Feature"}, inplace=True)
+                
+                # Convert to HTML
+                table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
+                table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
+
+        # C. Render Full Page
+        full_html = QUOTE_HTML_TEMPLATE.format(
+            quote_id=quote_id,
+            date=quote_data.get("Date", ""),
+            rm=quote_data.get("RM_Name", ""),
+            client=quote_data.get("Client_Name", ""),
+            city=quote_data.get("City", ""),
+            type=quote_data.get("Policy_Type", ""),
+            plans_html=plans_html,
+            table_html=table_html
+        )
+        
+        st.components.v1.html(full_html, height=1200, scrolling=True)
+        
+    else:
+        st.error("❌ Quote not found. It may have been deleted or the ID is incorrect.")
+
+if __name__ == "__main__":
+    main()
