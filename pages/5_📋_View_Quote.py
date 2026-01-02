@@ -3,6 +3,7 @@ import pandas as pd
 import gspread
 from google.oauth2.service_account import Credentials
 import datetime
+import streamlit.components.v1 as components
 
 # --- 1. CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
@@ -15,69 +16,6 @@ ST_STYLE = """
     .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
     div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
     div.stButton > button[kind="primary"]:hover { background-color: #45a049 !important; border-color: #45a049 !important; }
-</style>
-"""
-
-VIEWER_CSS = """
-<style>
-    /* HIDE STREAMLIT UI */
-    [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
-    .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-    .stApp { background-color: #f8f9fa; margin-top: -50px; }
-
-    /* TYPOGRAPHY */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-    .quote-page { font-family: 'Inter', sans-serif; color: #1f2937; line-height: 1.5; width: 100%; }
-
-    /* HERO */
-    .hero-section { background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%); color: white; padding: 70px 20px 90px; text-align: center; }
-    .hero-section h1 { margin: 0; font-size: 28px; font-weight: 700; }
-    .hero-section p { opacity: 0.9; font-size: 15px; margin-top: 8px; }
-
-    /* CONTAINER */
-    .main-container { max-width: 800px; margin: -50px auto 0; padding: 0 20px 60px; position: relative; z-index: 10; }
-
-    /* CLIENT CARD */
-    .client-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaeaea; margin-bottom: 30px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
-    .client-item { min-width: 120px; }
-    .label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
-    .value { font-size: 15px; font-weight: 600; color: #111; }
-
-    /* PLANS SUMMARY GRID */
-    .plans-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
-    .mini-plan-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; border-left: 4px solid #4CAF50; }
-    .mini-plan-name { font-weight: 700; color: #1b5e20; font-size: 14px; margin-bottom: 5px; }
-    .mini-plan-prem { font-weight: 800; color: #d32f2f; font-size: 16px; }
-
-    /* ACCORDION STYLES */
-    .accordion-item { background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
-    .accordion-header { padding: 18px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: white; transition: background 0.2s; }
-    .accordion-header:hover { background: #f9fafb; }
-    .acc-title { font-weight: 600; font-size: 16px; color: #111827; display: flex; align-items: center; gap: 10px; }
-    .acc-icon { font-size: 20px; }
-    .acc-desc { font-size: 13px; color: #6b7280; font-weight: 400; margin-left: 34px; margin-top: 2px; }
-    .chevron { transition: transform 0.3s ease; color: #9ca3af; }
-    .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: #f9fafb; border-top: 1px solid #f3f4f6; }
-    
-    .accordion-item.active .chevron { transform: rotate(180deg); color: #4CAF50; }
-    .accordion-item.active .accordion-content { max-height: 2000px; border-top: 1px solid #e5e7eb; }
-    .accordion-item.active .accordion-header { background: #f0fdf4; }
-
-    /* Comparison Rows inside Accordion */
-    .comp-row { display: flex; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #eee; }
-    .comp-row:last-child { border-bottom: none; }
-    .comp-plan-name { font-size: 13px; font-weight: 600; color: #374151; width: 40%; }
-    .comp-value { font-size: 14px; color: #111; width: 60%; text-align: right; font-weight: 500; display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
-    
-    /* Smart Colors */
-    .val-good { color: #166534; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-    .val-bad { color: #991b1b; font-weight: 700; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
-    .val-neutral { color: #374151; }
-
-    @media print {
-        .accordion-content { max-height: none !important; display: block !important; border-top: 1px solid #ccc; }
-        .chevron, .no-print { display: none; }
-    }
 </style>
 """
 
@@ -110,7 +48,6 @@ def load_master_data():
     if not client: return None, None, None
     try:
         sheet = client.open_by_url(SHEET_URL)
-        
         ws_drop = sheet.worksheet("Dropdown_Masters")
         r_drop = ws_drop.get_all_values()
         df_drop = pd.DataFrame(r_drop[1:], columns=r_drop[0]) if len(r_drop) > 1 else pd.DataFrame()
@@ -144,9 +81,17 @@ def log_quote_to_sheet(ws, q):
         return True
     except: return False
 
-# --- 4. VIEWER (FIXED HTML RENDERING) ---
+# --- 4. VIEWER (FIXED CLICK ISSUE) ---
 def render_quote_viewer(quote_id):
-    st.markdown(VIEWER_CSS, unsafe_allow_html=True)
+    st.set_page_config(page_title=f"Quote {quote_id}", layout="wide", initial_sidebar_state="collapsed")
+    
+    # Hide Streamlit UI via markdown (still needed to clear the frame)
+    st.markdown("""
+        <style>
+            [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
+            .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+        </style>
+    """, unsafe_allow_html=True)
     
     with st.spinner("Loading..."):
         ws, _, all_values = get_sheet_and_rows()
@@ -174,12 +119,11 @@ def render_quote_viewer(quote_id):
             if p_name:
                 p_prem = get(base+1)
                 active_plans.append(p_name)
-                # HTML indented to left to avoid markdown code-block issue
                 mini_cards_html += f"""
-<div class="mini-plan-card">
-    <div class="mini-plan-name">{p_name}</div>
-    <div class="mini-plan-prem">{p_prem}</div>
-</div>"""
+                <div class="mini-plan-card">
+                    <div class="mini-plan-name">{p_name}</div>
+                    <div class="mini-plan-prem">{p_prem}</div>
+                </div>"""
 
         _, df_plans, df_config = load_master_data()
         accordion_html = ""
@@ -213,62 +157,103 @@ def render_quote_viewer(quote_id):
                                 css_class = "val-bad"; status_icon = "⚠️"
                             
                             content_rows += f"""
-<div class="comp-row">
-    <div class="comp-plan-name">{plan}</div>
-    <div class="comp-value">
-        <span class="{css_class}">{val} {status_icon}</span>
-    </div>
-</div>"""
+                            <div class="comp-row">
+                                <div class="comp-plan-name">{plan}</div>
+                                <div class="comp-value">
+                                    <span class="{css_class}">{val} {status_icon}</span>
+                                </div>
+                            </div>"""
                         
                         accordion_html += f"""
-<div class="accordion-item">
-    <div class="accordion-header" onclick="toggleAccordion(this)">
-        <div><div class="acc-title"><span class="acc-icon">{icon}</span> {display_title}</div><div class="acc-desc">{explanation}</div></div>
-        <div class="chevron">▼</div>
-    </div>
-    <div class="accordion-content">{content_rows}</div>
-</div>"""
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="toggleAccordion(this)">
+                                <div><div class="acc-title"><span class="acc-icon">{icon}</span> {display_title}</div><div class="acc-desc">{explanation}</div></div>
+                                <div class="chevron">▼</div>
+                            </div>
+                            <div class="accordion-content">{content_rows}</div>
+                        </div>"""
 
-    # JS SCRIPT
-    JS_SCRIPT = """
-<script>
-    function toggleAccordion(element) {
-        const item = element.parentElement;
-        const isActive = item.classList.contains('active');
-        const allItems = document.querySelectorAll('.accordion-item');
-        allItems.forEach(i => i.classList.remove('active'));
-        if (!isActive) item.classList.add('active');
-    }
-</script>
-"""
+    # FULL HTML PAGE CONTENT
+    full_html = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {{ margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #f8f9fa; color: #1f2937; }}
+        .hero-section {{ background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%); color: white; padding: 60px 20px 80px; text-align: center; }}
+        .hero-section h1 {{ margin: 0; font-size: 26px; }}
+        .main-container {{ max-width: 800px; margin: -50px auto 0; padding: 0 20px 60px; position: relative; }}
+        
+        .client-card {{ background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); margin-bottom: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }}
+        .label {{ font-size: 10px; color: #666; text-transform: uppercase; font-weight: 700; }}
+        .value {{ font-size: 14px; font-weight: 600; color: #000; }}
+        
+        .plans-summary {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 30px; }}
+        .mini-plan-card {{ background: white; padding: 12px; border-radius: 8px; border: 1px solid #ddd; border-left: 4px solid #4CAF50; }}
+        .mini-plan-name {{ font-weight: 700; color: #1b5e20; font-size: 13px; }}
+        .mini-plan-prem {{ font-weight: 800; color: #d32f2f; font-size: 15px; }}
 
-    # MAIN RENDER (LEFT ALIGNED HTML TO PREVENT CODE BLOCK ISSUE)
-    st.markdown(f"""
-<div class="quote-page">
-    <div class="hero-section">
-        <h1>Health Proposal</h1>
-        <p>Prepared for <strong>{client}</strong> | {date}</p>
-    </div>
-    <div class="main-container">
-        <div class="client-card">
-            <div class="client-item"><div class="label">Reference</div><div class="value">{quote_id}</div></div>
-            <div class="client-item"><div class="label">Client</div><div class="value">{client}</div></div>
-            <div class="client-item"><div class="label">City</div><div class="value">{city}</div></div>
-            <div class="client-item"><div class="label">RM</div><div class="value">{rm}</div></div>
+        /* Accordion */
+        .accordion-item {{ background: white; border: 1px solid #eee; border-radius: 8px; margin-bottom: 10px; overflow: hidden; }}
+        .accordion-header {{ padding: 15px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; }}
+        .accordion-header:hover {{ background: #f9f9f9; }}
+        .acc-title {{ font-weight: 600; font-size: 15px; display: flex; align-items: center; gap: 8px; }}
+        .acc-desc {{ font-size: 12px; color: #666; margin-left: 30px; }}
+        .chevron {{ transition: 0.3s; }}
+        .accordion-content {{ max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: #fafafa; border-top: 1px solid #eee; }}
+        
+        .active .chevron {{ transform: rotate(180deg); }}
+        .active .accordion-content {{ max-height: 1000px; }}
+        .active .accordion-header {{ background: #f0fdf4; }}
+
+        .comp-row {{ display: flex; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid #eee; font-size: 13px; }}
+        .val-good {{ color: #166534; background: #dcfce7; padding: 2px 6px; border-radius: 4px; font-weight: 600; }}
+        .val-bad {{ color: #991b1b; background: #fee2e2; padding: 2px 6px; border-radius: 4px; font-weight: 600; }}
+        
+        @media print {{ .no-print {{ display: none; }} .accordion-content {{ max-height: none !important; }} }}
+    </style>
+    </head>
+    <body>
+        <div class="hero-section">
+            <h1>Health Proposal</h1>
+            <p>{client} | {date}</p>
         </div>
-        <div style="font-weight:700; margin-bottom:15px; color:#374151;">Selected Plans</div>
-        <div class="plans-summary">{mini_cards_html}</div>
-        <div style="font-weight:700; margin-bottom:15px; color:#374151; margin-top:40px;">Detailed Feature Guide</div>
-        {accordion_html}
-        <div style="text-align:center; margin-top:50px;" class="no-print">
-                <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:12px 25px; font-size:14px; font-weight:bold; border-radius:50px; cursor:pointer;">🖨️ Print Quote</button>
+        <div class="main-container">
+            <div class="client-card">
+                <div><div class="label">Reference</div><div class="value">{quote_id}</div></div>
+                <div><div class="label">Client</div><div class="value">{client}</div></div>
+                <div><div class="label">City</div><div class="value">{city}</div></div>
+                <div><div class="label">RM</div><div class="value">{rm}</div></div>
+            </div>
+            
+            <div style="font-weight:700; margin-bottom:10px; color:#444;">Selected Plans</div>
+            <div class="plans-summary">{mini_cards_html}</div>
+            
+            <div style="font-weight:700; margin-bottom:10px; color:#444; margin-top:30px;">Feature Guide</div>
+            {accordion_html}
+            
+            <div style="text-align:center; margin-top:40px;" class="no-print">
+                <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:12px 25px; font-weight:bold; border-radius:50px; cursor:pointer;">🖨️ Print Quote</button>
                 <br><br>
-                <a href="{APP_BASE_URL}" style="color:#6b7280; font-size:13px; text-decoration:none;">&larr; New Quote</a>
+                <a href="{APP_BASE_URL}" style="color:#666; font-size:12px; text-decoration:none;">Create New Quote</a>
+            </div>
         </div>
-    </div>
-</div>
-{JS_SCRIPT}
-""", unsafe_allow_html=True)
+        <script>
+            function toggleAccordion(element) {{
+                const item = element.parentElement;
+                const isActive = item.classList.contains('active');
+                document.querySelectorAll('.accordion-item').forEach(i => i.classList.remove('active'));
+                if (!isActive) item.classList.add('active');
+            }}
+        </script>
+    </body>
+    </html>
+    """
+    
+    # Render with Component (Sandboxed)
+    components.html(full_html, height=1200, scrolling=True)
 
 # --- 5. GENERATOR ---
 def render_generator():
@@ -306,7 +291,6 @@ def render_generator():
                     st.markdown(f'<a href="{APP_BASE_URL}?quote_id={qid}" target="_blank" style="background:#4CAF50;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">Open Quote</a>', unsafe_allow_html=True)
 
 def main():
-    st.set_page_config(page_title="Quote Tool", layout="wide", initial_sidebar_state="collapsed")
     if "quote_id" in st.query_params: render_quote_viewer(st.query_params["quote_id"])
     else: render_generator()
 
