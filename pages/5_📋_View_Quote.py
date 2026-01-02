@@ -6,7 +6,7 @@ import datetime
 
 # --- 1. CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
-APP_BASE_URL = "https://moneyplustools.streamlit.app/View_Quote" 
+APP_BASE_URL = "https://moneyplustools.streamlit.app" 
 
 # --- 2. CSS STYLES ---
 ST_STYLE = """
@@ -20,30 +20,36 @@ ST_STYLE = """
 
 VIEWER_CSS = """
 <style>
+    /* HIDE STREAMLIT UI */
     [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
     .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
     .stApp { background-color: #f8f9fa; margin-top: -50px; }
 
+    /* TYPOGRAPHY */
     @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
     .quote-page { font-family: 'Inter', sans-serif; color: #1f2937; line-height: 1.5; width: 100%; }
 
+    /* HERO */
     .hero-section { background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%); color: white; padding: 70px 20px 90px; text-align: center; }
     .hero-section h1 { margin: 0; font-size: 28px; font-weight: 700; }
     .hero-section p { opacity: 0.9; font-size: 15px; margin-top: 8px; }
 
+    /* CONTAINER */
     .main-container { max-width: 800px; margin: -50px auto 0; padding: 0 20px 60px; position: relative; z-index: 10; }
 
+    /* CLIENT CARD */
     .client-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaeaea; margin-bottom: 30px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
     .client-item { min-width: 120px; }
     .label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
     .value { font-size: 15px; font-weight: 600; color: #111; }
 
+    /* PLANS SUMMARY GRID */
     .plans-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
     .mini-plan-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; border-left: 4px solid #4CAF50; }
     .mini-plan-name { font-weight: 700; color: #1b5e20; font-size: 14px; margin-bottom: 5px; }
     .mini-plan-prem { font-weight: 800; color: #d32f2f; font-size: 16px; }
 
-    /* Accordion */
+    /* ACCORDION STYLES */
     .accordion-item { background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
     .accordion-header { padding: 18px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: white; transition: background 0.2s; }
     .accordion-header:hover { background: #f9fafb; }
@@ -57,7 +63,7 @@ VIEWER_CSS = """
     .accordion-item.active .accordion-content { max-height: 2000px; border-top: 1px solid #e5e7eb; }
     .accordion-item.active .accordion-header { background: #f0fdf4; }
 
-    /* Comparison Rows */
+    /* Comparison Rows inside Accordion */
     .comp-row { display: flex; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #eee; }
     .comp-row:last-child { border-bottom: none; }
     .comp-plan-name { font-size: 13px; font-weight: 600; color: #374151; width: 40%; }
@@ -113,7 +119,6 @@ def load_master_data():
         r_plans = ws_plans.get_all_values()
         df_plans = pd.DataFrame(r_plans[3:], columns=r_plans[2]) if len(r_plans) > 3 else pd.DataFrame()
 
-        # Feature Config with Keywords
         try:
             ws_config = sheet.worksheet("Feature_Config")
             r_config = ws_config.get_all_values()
@@ -139,7 +144,7 @@ def log_quote_to_sheet(ws, q):
         return True
     except: return False
 
-# --- 4. VIEWER (SMART COLORING) ---
+# --- 4. VIEWER (FIXED HTML RENDERING) ---
 def render_quote_viewer(quote_id):
     st.markdown(VIEWER_CSS, unsafe_allow_html=True)
     
@@ -169,11 +174,12 @@ def render_quote_viewer(quote_id):
             if p_name:
                 p_prem = get(base+1)
                 active_plans.append(p_name)
+                # HTML indented to left to avoid markdown code-block issue
                 mini_cards_html += f"""
-                <div class="mini-plan-card">
-                    <div class="mini-plan-name">{p_name}</div>
-                    <div class="mini-plan-prem">{p_prem}</div>
-                </div>"""
+<div class="mini-plan-card">
+    <div class="mini-plan-name">{p_name}</div>
+    <div class="mini-plan-prem">{p_prem}</div>
+</div>"""
 
         _, df_plans, df_config = load_master_data()
         accordion_html = ""
@@ -189,7 +195,6 @@ def render_quote_viewer(quote_id):
                     explanation = config_row.get("Explanation", "")
                     icon = config_row.get("Icon", "🔹")
                     
-                    # Logic for Coloring
                     good_words = [w.strip().lower() for w in config_row.get("Good_Words", "").split(",") if w.strip()]
                     bad_words = [w.strip().lower() for w in config_row.get("Bad_Words", "").split(",") if w.strip()]
 
@@ -200,75 +205,70 @@ def render_quote_viewer(quote_id):
                         for plan in valid_plans:
                             val = str(plan_data_row.iloc[0][plan])
                             val_lower = val.lower()
-                            
-                            # Determine Style
                             css_class = "val-neutral"
                             status_icon = ""
-                            
                             if any(w in val_lower for w in good_words):
-                                css_class = "val-good"
-                                status_icon = "✅"
+                                css_class = "val-good"; status_icon = "✅"
                             elif any(w in val_lower for w in bad_words):
-                                css_class = "val-bad"
-                                status_icon = "⚠️"
-                                
+                                css_class = "val-bad"; status_icon = "⚠️"
+                            
                             content_rows += f"""
-                            <div class="comp-row">
-                                <div class="comp-plan-name">{plan}</div>
-                                <div class="comp-value">
-                                    <span class="{css_class}">{val} {status_icon}</span>
-                                </div>
-                            </div>
-                            """
+<div class="comp-row">
+    <div class="comp-plan-name">{plan}</div>
+    <div class="comp-value">
+        <span class="{css_class}">{val} {status_icon}</span>
+    </div>
+</div>"""
                         
                         accordion_html += f"""
-                        <div class="accordion-item">
-                            <div class="accordion-header" onclick="toggleAccordion(this)">
-                                <div><div class="acc-title"><span class="acc-icon">{icon}</span> {display_title}</div><div class="acc-desc">{explanation}</div></div>
-                                <div class="chevron">▼</div>
-                            </div>
-                            <div class="accordion-content">{content_rows}</div>
-                        </div>
-                        """
+<div class="accordion-item">
+    <div class="accordion-header" onclick="toggleAccordion(this)">
+        <div><div class="acc-title"><span class="acc-icon">{icon}</span> {display_title}</div><div class="acc-desc">{explanation}</div></div>
+        <div class="chevron">▼</div>
+    </div>
+    <div class="accordion-content">{content_rows}</div>
+</div>"""
 
+    # JS SCRIPT
     JS_SCRIPT = """
-    <script>
-        function toggleAccordion(element) {
-            const item = element.parentElement;
-            const isActive = item.classList.contains('active');
-            const allItems = document.querySelectorAll('.accordion-item');
-            allItems.forEach(i => i.classList.remove('active'));
-            if (!isActive) item.classList.add('active');
-        }
-    </script>
-    """
+<script>
+    function toggleAccordion(element) {
+        const item = element.parentElement;
+        const isActive = item.classList.contains('active');
+        const allItems = document.querySelectorAll('.accordion-item');
+        allItems.forEach(i => i.classList.remove('active'));
+        if (!isActive) item.classList.add('active');
+    }
+</script>
+"""
 
+    # MAIN RENDER (LEFT ALIGNED HTML TO PREVENT CODE BLOCK ISSUE)
     st.markdown(f"""
-    <div class="quote-page">
-        <div class="hero-section">
-            <h1>Health Proposal</h1>
-            <p>Prepared for <strong>{client}</strong> | {date}</p>
+<div class="quote-page">
+    <div class="hero-section">
+        <h1>Health Proposal</h1>
+        <p>Prepared for <strong>{client}</strong> | {date}</p>
+    </div>
+    <div class="main-container">
+        <div class="client-card">
+            <div class="client-item"><div class="label">Reference</div><div class="value">{quote_id}</div></div>
+            <div class="client-item"><div class="label">Client</div><div class="value">{client}</div></div>
+            <div class="client-item"><div class="label">City</div><div class="value">{city}</div></div>
+            <div class="client-item"><div class="label">RM</div><div class="value">{rm}</div></div>
         </div>
-        <div class="main-container">
-            <div class="client-card">
-                <div class="client-item"><div class="label">Reference</div><div class="value">{quote_id}</div></div>
-                <div class="client-item"><div class="label">Client</div><div class="value">{client}</div></div>
-                <div class="client-item"><div class="label">City</div><div class="value">{city}</div></div>
-                <div class="client-item"><div class="label">RM</div><div class="value">{rm}</div></div>
-            </div>
-            <div style="font-weight:700; margin-bottom:15px; color:#374151;">Selected Plans</div>
-            <div class="plans-summary">{mini_cards_html}</div>
-            <div style="font-weight:700; margin-bottom:15px; color:#374151; margin-top:40px;">Detailed Feature Guide</div>
-            {accordion_html}
-            <div style="text-align:center; margin-top:50px;" class="no-print">
-                 <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:12px 25px; font-size:14px; font-weight:bold; border-radius:50px; cursor:pointer;">🖨️ Print Quote</button>
-                 <br><br>
-                 <a href="{APP_BASE_URL}" style="color:#6b7280; font-size:13px; text-decoration:none;">&larr; New Quote</a>
-            </div>
+        <div style="font-weight:700; margin-bottom:15px; color:#374151;">Selected Plans</div>
+        <div class="plans-summary">{mini_cards_html}</div>
+        <div style="font-weight:700; margin-bottom:15px; color:#374151; margin-top:40px;">Detailed Feature Guide</div>
+        {accordion_html}
+        <div style="text-align:center; margin-top:50px;" class="no-print">
+                <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:12px 25px; font-size:14px; font-weight:bold; border-radius:50px; cursor:pointer;">🖨️ Print Quote</button>
+                <br><br>
+                <a href="{APP_BASE_URL}" style="color:#6b7280; font-size:13px; text-decoration:none;">&larr; New Quote</a>
         </div>
     </div>
-    {JS_SCRIPT}
-    """, unsafe_allow_html=True)
+</div>
+{JS_SCRIPT}
+""", unsafe_allow_html=True)
 
 # --- 5. GENERATOR ---
 def render_generator():
