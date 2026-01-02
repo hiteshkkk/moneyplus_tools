@@ -6,147 +6,71 @@ import datetime
 
 # --- 1. CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 KEEP YOUR SHEET URL HERE
-APP_BASE_URL = "https://moneyplustools.streamlit.app" 
+APP_BASE_URL = "https://moneyplustools.streamlit.app/View_Quote" 
 
 # --- 2. CSS STYLES ---
-
-# A. Generator Mode Styles (Green Buttons, Tags)
-GENERATOR_CSS = """
+ST_STYLE = """
 <style>
-    .stMultiSelect span[data-baseweb="tag"] {
-        background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important;
-    }
-    .stMultiSelect span[data-baseweb="tag"] span {
-        color: #1b5e20 !important;
-    }
-    div.stButton > button[kind="primary"] {
-        background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important;
-    }
-    div.stButton > button[kind="primary"]:hover {
-        background-color: #45a049 !important; border-color: #45a049 !important;
-    }
+    .stMultiSelect span[data-baseweb="tag"] { background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important; }
+    .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
+    div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
+    div.stButton > button[kind="primary"]:hover { background-color: #45a049 !important; border-color: #45a049 !important; }
 </style>
 """
 
-# B. Viewer Mode Styles (Hides Streamlit UI for "Website" Look)
 VIEWER_CSS = """
 <style>
-    /* 1. HIDE STREAMLIT CHROME (The "Window" parts) */
-    [data-testid="stHeader"], 
-    [data-testid="stSidebar"], 
-    [data-testid="stToolbar"], 
-    footer, 
-    #MainMenu {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-    }
-    
-    /* 2. REMOVE PADDING (Full Screen) */
-    .block-container {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        padding-left: 0 !important;
-        padding-right: 0 !important;
-        margin: 0 !important;
-        max-width: 100% !important;
-    }
-    .stApp {
-        background-color: #f8f9fa; /* Match Page BG */
-        margin-top: -50px; /* Pull up to cover any remaining gap */
-    }
+    [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
+    .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+    .stApp { background-color: #f8f9fa; margin-top: -50px; }
 
-    /* 3. CUSTOM TYPOGRAPHY & LAYOUT */
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-    
-    .quote-page {
-        font-family: 'Inter', sans-serif;
-        color: #1f2937;
-        line-height: 1.5;
-        width: 100%;
-    }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+    .quote-page { font-family: 'Inter', sans-serif; color: #1f2937; line-height: 1.5; width: 100%; }
 
-    /* HERO */
-    .hero-section {
-        background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%);
-        color: white;
-        padding: 80px 20px 100px;
-        text-align: center;
-        width: 100%;
-    }
-    .hero-section h1 { margin: 0; font-size: 32px; font-weight: 700; color: white !important; }
-    .hero-section p { color: rgba(255,255,255,0.9); font-size: 16px; margin-top: 10px; }
-    
-    /* CONTAINER */
-    .main-container {
-        max-width: 1000px;
-        margin: -60px auto 0;
-        padding: 0 20px 60px;
-        position: relative;
-        z-index: 10;
-    }
-    
-    /* CARDS */
-    .client-card {
-        background: white;
-        border-radius: 12px;
-        padding: 25px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.08);
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-        gap: 20px;
-        margin-bottom: 40px;
-        border: 1px solid #eaeaea;
-    }
+    .hero-section { background: linear-gradient(135deg, #1b5e20 0%, #4caf50 100%); color: white; padding: 70px 20px 90px; text-align: center; }
+    .hero-section h1 { margin: 0; font-size: 28px; font-weight: 700; }
+    .hero-section p { opacity: 0.9; font-size: 15px; margin-top: 8px; }
+
+    .main-container { max-width: 800px; margin: -50px auto 0; padding: 0 20px 60px; position: relative; z-index: 10; }
+
+    .client-card { background: white; border-radius: 12px; padding: 20px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #eaeaea; margin-bottom: 30px; display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
+    .client-item { min-width: 120px; }
     .label { font-size: 11px; color: #6b7280; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
-    .value { font-size: 16px; font-weight: 700; color: #111; margin-top: 4px; }
+    .value { font-size: 15px; font-weight: 600; color: #111; }
 
-    /* SECTIONS */
-    .section-header {
-        font-size: 20px; font-weight: 700; color: #1f2937; margin: 40px 0 20px;
-        padding-bottom: 10px; border-bottom: 2px solid #eee;
-    }
+    .plans-summary { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 15px; margin-bottom: 30px; }
+    .mini-plan-card { background: white; padding: 15px; border-radius: 8px; border: 1px solid #e5e7eb; border-left: 4px solid #4CAF50; }
+    .mini-plan-name { font-weight: 700; color: #1b5e20; font-size: 14px; margin-bottom: 5px; }
+    .mini-plan-prem { font-weight: 800; color: #d32f2f; font-size: 16px; }
 
-    /* PLAN GRID */
-    .plans-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-        gap: 25px;
-    }
-    .plan-card {
-        background: white;
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid #e5e7eb;
-        box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-        transition: transform 0.2s;
-    }
-    .plan-card:hover { transform: translateY(-5px); box-shadow: 0 12px 20px rgba(0,0,0,0.1); }
+    /* Accordion */
+    .accordion-item { background: white; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 12px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.02); }
+    .accordion-header { padding: 18px 20px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: white; transition: background 0.2s; }
+    .accordion-header:hover { background: #f9fafb; }
+    .acc-title { font-weight: 600; font-size: 16px; color: #111827; display: flex; align-items: center; gap: 10px; }
+    .acc-icon { font-size: 20px; }
+    .acc-desc { font-size: 13px; color: #6b7280; font-weight: 400; margin-left: 34px; margin-top: 2px; }
+    .chevron { transition: transform 0.3s ease; color: #9ca3af; }
+    .accordion-content { max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: #f9fafb; border-top: 1px solid #f3f4f6; }
     
-    .card-top { background: #f0fdf4; padding: 20px; border-bottom: 1px solid #e5e7eb; }
-    .card-title { font-size: 18px; font-weight: 700; color: #166534; }
-    
-    .card-content { padding: 25px; }
-    .price-tag { font-size: 22px; font-weight: 800; color: #dc2626; margin-bottom: 15px; }
-    .notes-text { font-size: 14px; color: #4b5563; background: #fffbeb; padding: 15px; border-radius: 8px; line-height: 1.6; }
+    .accordion-item.active .chevron { transform: rotate(180deg); color: #4CAF50; }
+    .accordion-item.active .accordion-content { max-height: 2000px; border-top: 1px solid #e5e7eb; }
+    .accordion-item.active .accordion-header { background: #f0fdf4; }
 
-    /* TABLE */
-    .table-container {
-        background: white; border-radius: 12px; overflow: hidden;
-        border: 1px solid #e5e7eb; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-        overflow-x: auto;
-    }
-    table { width: 100%; border-collapse: collapse; min-width: 600px; }
-    th { background: #f9fafb; padding: 15px; text-align: left; font-size: 13px; color: #6b7280; border-bottom: 1px solid #e5e7eb; }
-    td { padding: 15px; border-bottom: 1px solid #e5e7eb; font-size: 14px; color: #374151; vertical-align: top; }
+    /* Comparison Rows */
+    .comp-row { display: flex; justify-content: space-between; padding: 12px 20px; border-bottom: 1px solid #eee; }
+    .comp-row:last-child { border-bottom: none; }
+    .comp-plan-name { font-size: 13px; font-weight: 600; color: #374151; width: 40%; }
+    .comp-value { font-size: 14px; color: #111; width: 60%; text-align: right; font-weight: 500; display: flex; justify-content: flex-end; align-items: center; gap: 6px; }
     
-    /* PRINT */
+    /* Smart Colors */
+    .val-good { color: #166534; font-weight: 700; background: #dcfce7; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    .val-bad { color: #991b1b; font-weight: 700; background: #fee2e2; padding: 2px 8px; border-radius: 4px; font-size: 12px; }
+    .val-neutral { color: #374151; }
+
     @media print {
-        .hero-section { padding: 20px; color: #000; background: none; text-align: left; border-bottom: 2px solid #4CAF50; }
-        .hero-section h1 { color: #2E7D32 !important; font-size: 24px; }
-        .main-container { margin-top: 0; max-width: 100%; box-shadow: none; padding: 0; }
-        .client-card, .plan-card, .table-container { box-shadow: none; border: 1px solid #ccc; margin-bottom: 20px; break-inside: avoid; }
-        .no-print { display: none; }
+        .accordion-content { max-height: none !important; display: block !important; border-top: 1px solid #ccc; }
+        .chevron, .no-print { display: none; }
     }
 </style>
 """
@@ -159,269 +83,231 @@ def get_gspread_client():
         creds_dict = st.secrets["gcp_service_account"]
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         return gspread.authorize(creds)
-    except Exception as e:
-        st.error(f"❌ Auth Error: {e}")
-        return None
+    except Exception: return None
 
 def get_sheet_and_rows():
     client = get_gspread_client()
     if not client: return None, 0
     try:
         sheet = client.open_by_url(SHEET_URL)
-        try:
-            ws = sheet.worksheet("Generated_Quotes")
-        except:
-            ws = sheet.add_worksheet(title="Generated_Quotes", rows=1000, cols=25)
-            headers = ["Quote_ID", "Date", "RM_Name", "Client_Name", "City", "Policy_Type", "CRM_Link"]
-            for i in range(1, 6): 
-                headers.extend([f"Plan_{i}", f"Prem_{i}", f"Note_{i}"])
-            ws.append_row(headers)
+        try: ws = sheet.worksheet("Generated_Quotes")
+        except: 
+            ws = sheet.add_worksheet("Generated_Quotes", 1000, 25)
+            ws.append_row(["Quote_ID", "Date", "RM_Name", "Client_Name", "City", "Policy_Type", "CRM_Link"])
         all_values = ws.get_all_values()
         return ws, len(all_values), all_values
-    except Exception as e:
-        st.error(f"❌ Sheet Error: {e}")
-        return None, 0, []
+    except: return None, 0, []
 
 @st.cache_data(ttl=600)
 def load_master_data():
     client = get_gspread_client()
-    if not client: return None, None
+    if not client: return None, None, None
     try:
         sheet = client.open_by_url(SHEET_URL)
+        
         ws_drop = sheet.worksheet("Dropdown_Masters")
-        raw_drop = ws_drop.get_all_values()
-        df_drop = pd.DataFrame(raw_drop[1:], columns=raw_drop[0]) if len(raw_drop) > 1 else pd.DataFrame()
+        r_drop = ws_drop.get_all_values()
+        df_drop = pd.DataFrame(r_drop[1:], columns=r_drop[0]) if len(r_drop) > 1 else pd.DataFrame()
         
         ws_plans = sheet.worksheet("Plans_Master")
-        raw_plans = ws_plans.get_all_values()
-        if len(raw_plans) > 3:
-            df_plans = pd.DataFrame(raw_plans[3:], columns=raw_plans[2])
-        else:
-            df_plans = pd.DataFrame() 
-        return df_drop, df_plans
-    except Exception as e:
-        st.error(f"❌ Data Error: {e}")
-        return None, None
+        r_plans = ws_plans.get_all_values()
+        df_plans = pd.DataFrame(r_plans[3:], columns=r_plans[2]) if len(r_plans) > 3 else pd.DataFrame()
+
+        # Feature Config with Keywords
+        try:
+            ws_config = sheet.worksheet("Feature_Config")
+            r_config = ws_config.get_all_values()
+            df_config = pd.DataFrame(r_config[1:], columns=r_config[0]) if len(r_config) > 1 else pd.DataFrame()
+        except:
+            df_config = pd.DataFrame()
+
+        return df_drop, df_plans, df_config
+    except: return None, None, None
 
 def generate_custom_id(rm_name, row_count):
     initials = "".join([x[0].upper() for x in rm_name.split() if x])
-    date_str = datetime.datetime.now().strftime("%Y%m%d")
-    unique_no = str(row_count + 1)
-    return f"{initials}{date_str}{unique_no}"
+    return f"{initials}{datetime.datetime.now().strftime('%Y%m%d')}{row_count + 1}"
 
-def log_quote_to_sheet(ws, quote_data):
+def log_quote_to_sheet(ws, q):
     try:
-        row = [
-            quote_data['quote_id'], quote_data['date'], quote_data['rm'],
-            quote_data['client'], quote_data['city'], quote_data['type'], quote_data['crm_link']
-        ]
-        plans = quote_data['plans']
+        row = [q['quote_id'], q['date'], q['rm'], q['client'], q['city'], q['type'], q['crm_link']]
+        plans = q['plans']
         for i in range(5):
-            if i < len(plans):
-                p = plans[i]
-                row.extend([p['Plan Name'], p['Premium'], p['Notes']])
-            else:
-                row.extend(["", "", ""])
+            if i < len(plans): row.extend([plans[i]['Plan Name'], plans[i]['Premium'], plans[i]['Notes']])
+            else: row.extend(["", "", ""])
         ws.append_row(row)
         return True
-    except Exception as e:
-        st.error(f"❌ Log Error: {e}")
-        return False
+    except: return False
 
-# --- 4. VIEWER MODE ---
+# --- 4. VIEWER (SMART COLORING) ---
 def render_quote_viewer(quote_id):
-    # 1. Inject CSS to Hide UI
     st.markdown(VIEWER_CSS, unsafe_allow_html=True)
     
-    # 2. Fetch Data
-    with st.spinner("Loading Proposal..."):
+    with st.spinner("Loading..."):
         ws, _, all_values = get_sheet_and_rows()
         if not ws: return
         
         headers = all_values[0]
         try: q_idx = headers.index("Quote_ID")
         except: q_idx = 0 
-
-        target_row = None
+        
+        target = None
         for row in all_values:
             if len(row) > q_idx and str(row[q_idx]).strip() == str(quote_id).strip():
-                target_row = row
-                break
-        
-        if not target_row:
-            st.error(f"Quote {quote_id} not found.")
-            return
+                target = row; break
+        if not target: st.error("Quote not found."); return
 
-        def safe_get(idx): return target_row[idx] if idx < len(target_row) else ""
+        def get(i): return target[i] if i < len(target) else ""
 
-        # Map Data
-        date_val, rm_val = safe_get(1), safe_get(2)
-        client_val, city_val = safe_get(3), safe_get(4)
-        type_val = safe_get(5)
+        date, rm, client, city, p_type = get(1), get(2), get(3), get(4), get(5)
 
-        # Build Plans HTML
-        plans_html = ""
         active_plans = []
+        mini_cards_html = ""
         for i in range(5):
-            base = 7 + (i * 3)
-            p_name = safe_get(base)
-            if p_name and p_name.strip():
-                p_prem = safe_get(base + 1).replace('\n', '<br>')
-                p_note = safe_get(base + 2).replace('\n', '<br>')
+            base = 7 + (i*3)
+            p_name = get(base)
+            if p_name:
+                p_prem = get(base+1)
                 active_plans.append(p_name)
-                plans_html += f"""
-                <div class="plan-card">
-                    <div class="card-top"><div class="card-title">{p_name}</div></div>
-                    <div class="card-content">
-                        <div class="price-tag">{p_prem}</div>
-                        <div class="notes-text"><strong>Highlights:</strong><br>{p_note}</div>
-                    </div>
-                </div>
-                """
+                mini_cards_html += f"""
+                <div class="mini-plan-card">
+                    <div class="mini-plan-name">{p_name}</div>
+                    <div class="mini-plan-prem">{p_prem}</div>
+                </div>"""
 
-        # Build Table HTML
-        table_html = ""
-        _, df_plans = load_master_data()
+        _, df_plans, df_config = load_master_data()
+        accordion_html = ""
+        
         if df_plans is not None and not df_plans.empty and active_plans:
             all_cols = list(df_plans.columns)
             valid_plans = [p for p in active_plans if p in df_plans.columns]
-            if valid_plans:
-                cols = [all_cols[1]] + valid_plans
-                comp_df = df_plans[cols].copy()
-                comp_df.rename(columns={all_cols[1]: "Feature"}, inplace=True)
-                table_html = comp_df.to_html(index=False, border=0, classes="compare-table")
-                table_html = table_html.replace("\\n", "<br>").replace("\n", "<br>")
+            
+            if valid_plans and not df_config.empty:
+                for _, config_row in df_config.iterrows():
+                    raw_name = config_row.get("Raw_Feature", "").strip()
+                    display_title = config_row.get("Display_Title", raw_name)
+                    explanation = config_row.get("Explanation", "")
+                    icon = config_row.get("Icon", "🔹")
+                    
+                    # Logic for Coloring
+                    good_words = [w.strip().lower() for w in config_row.get("Good_Words", "").split(",") if w.strip()]
+                    bad_words = [w.strip().lower() for w in config_row.get("Bad_Words", "").split(",") if w.strip()]
 
-        # 3. Render Page
-        st.markdown(f"""
-        <div class="quote-page">
-            <div class="hero-section">
-                <h1>Health Insurance Proposal</h1>
-                <p>Prepared for <strong>{client_val}</strong> by {rm_val} | {date_val}</p>
+                    plan_data_row = df_plans[df_plans.iloc[:, 1] == raw_name]
+                    
+                    if not plan_data_row.empty:
+                        content_rows = ""
+                        for plan in valid_plans:
+                            val = str(plan_data_row.iloc[0][plan])
+                            val_lower = val.lower()
+                            
+                            # Determine Style
+                            css_class = "val-neutral"
+                            status_icon = ""
+                            
+                            if any(w in val_lower for w in good_words):
+                                css_class = "val-good"
+                                status_icon = "✅"
+                            elif any(w in val_lower for w in bad_words):
+                                css_class = "val-bad"
+                                status_icon = "⚠️"
+                                
+                            content_rows += f"""
+                            <div class="comp-row">
+                                <div class="comp-plan-name">{plan}</div>
+                                <div class="comp-value">
+                                    <span class="{css_class}">{val} {status_icon}</span>
+                                </div>
+                            </div>
+                            """
+                        
+                        accordion_html += f"""
+                        <div class="accordion-item">
+                            <div class="accordion-header" onclick="toggleAccordion(this)">
+                                <div><div class="acc-title"><span class="acc-icon">{icon}</span> {display_title}</div><div class="acc-desc">{explanation}</div></div>
+                                <div class="chevron">▼</div>
+                            </div>
+                            <div class="accordion-content">{content_rows}</div>
+                        </div>
+                        """
+
+    JS_SCRIPT = """
+    <script>
+        function toggleAccordion(element) {
+            const item = element.parentElement;
+            const isActive = item.classList.contains('active');
+            const allItems = document.querySelectorAll('.accordion-item');
+            allItems.forEach(i => i.classList.remove('active'));
+            if (!isActive) item.classList.add('active');
+        }
+    </script>
+    """
+
+    st.markdown(f"""
+    <div class="quote-page">
+        <div class="hero-section">
+            <h1>Health Proposal</h1>
+            <p>Prepared for <strong>{client}</strong> | {date}</p>
+        </div>
+        <div class="main-container">
+            <div class="client-card">
+                <div class="client-item"><div class="label">Reference</div><div class="value">{quote_id}</div></div>
+                <div class="client-item"><div class="label">Client</div><div class="value">{client}</div></div>
+                <div class="client-item"><div class="label">City</div><div class="value">{city}</div></div>
+                <div class="client-item"><div class="label">RM</div><div class="value">{rm}</div></div>
             </div>
-            <div class="main-container">
-                <div class="client-card">
-                    <div><div class="label">Reference</div><div class="value">{quote_id}</div></div>
-                    <div><div class="label">Client</div><div class="value">{client_val}</div></div>
-                    <div><div class="label">City</div><div class="value">{city_val}</div></div>
-                    <div><div class="label">Type</div><div class="value">{type_val}</div></div>
-                </div>
-                
-                <div class="section-header">Recommended Options</div>
-                <div class="plans-grid">{plans_html}</div>
-                
-                <div class="section-header">Feature Comparison</div>
-                <div class="table-container">{table_html}</div>
-                
-                <div style="text-align:center; margin-top:50px;" class="no-print">
-                    <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:15px 30px; font-size:16px; font-weight:bold; border-radius:50px; cursor:pointer; box-shadow:0 4px 10px rgba(76,175,80,0.3);">🖨️ Download PDF</button>
-                    <br><br>
-                    <a href="{APP_BASE_URL}" style="color:#6b7280; text-decoration:none; font-size:14px;">&larr; Create New Quote</a>
-                </div>
+            <div style="font-weight:700; margin-bottom:15px; color:#374151;">Selected Plans</div>
+            <div class="plans-summary">{mini_cards_html}</div>
+            <div style="font-weight:700; margin-bottom:15px; color:#374151; margin-top:40px;">Detailed Feature Guide</div>
+            {accordion_html}
+            <div style="text-align:center; margin-top:50px;" class="no-print">
+                 <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:12px 25px; font-size:14px; font-weight:bold; border-radius:50px; cursor:pointer;">🖨️ Print Quote</button>
+                 <br><br>
+                 <a href="{APP_BASE_URL}" style="color:#6b7280; font-size:13px; text-decoration:none;">&larr; New Quote</a>
             </div>
         </div>
-        """, unsafe_allow_html=True)
+    </div>
+    {JS_SCRIPT}
+    """, unsafe_allow_html=True)
 
-# --- 5. GENERATOR MODE ---
+# --- 5. GENERATOR ---
 def render_generator():
-    st.markdown(GENERATOR_CSS, unsafe_allow_html=True)
+    st.markdown(ST_STYLE, unsafe_allow_html=True)
     st.title("📝 Health Insurance Quote Generator")
-
-    if "YOUR_FULL_URL_HERE" in SHEET_URL:
-        st.warning("⚠️ Update SHEET_URL in code.")
-        return
-
-    with st.spinner("Syncing Master Data..."):
-        df_masters, df_plans = load_master_data()
-
-    if df_masters is not None and not df_plans.empty:
-        with st.container():
-            st.subheader("1. Client Details")
-            c1, c2, c3, c4 = st.columns(4)
-            rm_list = [x for x in df_masters['RM Names'].unique() if x]
-            sel_rm = c1.selectbox("RM Name", rm_list)
-            client_name = c2.text_input("Client Name")
-            city = c3.text_input("City")
-            pol_type = c4.selectbox("Policy Type", ["Fresh", "Port"])
-            crm_link = st.text_input("CRM Lead URL", placeholder="Optional")
-
+    with st.spinner("Syncing..."): df_drop, df_plans, _ = load_master_data()
+    
+    if df_plans is not None:
+        c1, c2, c3, c4 = st.columns(4)
+        rm = c1.selectbox("RM", [x for x in df_drop['RM Names'].unique() if x] if df_drop is not None else [])
+        client = c2.text_input("Client Name")
+        city = c3.text_input("City")
+        p_type = c4.selectbox("Type", ["Fresh", "Port"])
+        crm = st.text_input("CRM Link")
+        
         st.divider()
-        st.subheader("2. Select Plans")
-        all_cols = list(df_plans.columns)
-        if len(all_cols) > 2:
-            plan_opts = all_cols[2:]
-            sel_plans = st.multiselect("Compare Plans:", options=plan_opts)
+        sel_plans = st.multiselect("Select Plans", df_plans.columns[2:].tolist() if not df_plans.empty else [])
+        
+        if sel_plans:
+            user_inputs = {}
+            for p in sel_plans[:5]:
+                c_p, c_n = st.columns([1,2])
+                user_inputs[f"{p}_p"] = c_p.text_area(f"{p} Premium", height=70)
+                user_inputs[f"{p}_n"] = c_n.text_area(f"{p} Notes", height=70)
             
-            if sel_plans:
-                if len(sel_plans) > 5: st.warning("⚠️ Max 5 plans.")
-                st.divider()
-                st.subheader("3. Premiums & Notes")
-                user_inputs = {}
-                for plan in sel_plans[:5]:
-                    st.markdown(f"**{plan}**")
-                    c_prem, c_note = st.columns([1, 2])
-                    with c_prem:
-                        user_inputs[f"{plan}_prem"] = st.text_area("Premium", placeholder="e.g. ₹15k + GST", key=f"p_{plan}", height=100)
-                    with c_note:
-                        user_inputs[f"{plan}_note"] = st.text_area("Notes", placeholder="Benefits...", key=f"n_{plan}", height=100)
-                    st.markdown("<hr style='margin: 10px 0; opacity: 0.3;'>", unsafe_allow_html=True)
+            if st.button("🚀 Generate Link", type="primary"):
+                if not client: st.error("Client Name Required"); return
+                ws, cnt, _ = get_sheet_and_rows()
+                qid = generate_custom_id(rm, cnt)
+                plans = [{"Plan Name":p, "Premium":user_inputs[f"{p}_p"], "Notes":user_inputs[f"{p}_n"]} for p in sel_plans[:5]]
+                q_data = {"quote_id":qid, "date":datetime.date.today().strftime("%d-%b-%Y"), "rm":rm, "client":client, "city":city, "type":p_type, "crm_link":crm, "plans":plans}
+                
+                if log_quote_to_sheet(ws, q_data):
+                    st.success(f"Generated: {qid}")
+                    st.markdown(f'<a href="{APP_BASE_URL}?quote_id={qid}" target="_blank" style="background:#4CAF50;color:white;padding:10px 20px;text-decoration:none;border-radius:5px;display:inline-block;">Open Quote</a>', unsafe_allow_html=True)
 
-                st.subheader("4. Preview")
-                cols = [all_cols[1]] + sel_plans[:5]
-                comp_df = df_plans[cols].copy()
-                comp_df.rename(columns={all_cols[1]: "Feature"}, inplace=True)
-                st.dataframe(comp_df, hide_index=True, use_container_width=True, height=300)
-
-                st.divider()
-                if st.button("🚀 Generate Quote Link", type="primary"):
-                    if not client_name:
-                        st.error("Enter Client Name.")
-                    else:
-                        with st.spinner("Generating..."):
-                            ws, row_count, _ = get_sheet_and_rows()
-                            quote_id = generate_custom_id(sel_rm, row_count)
-                            today_str = datetime.date.today().strftime("%d-%b-%Y")
-                            
-                            final_plans = []
-                            for p in sel_plans[:5]:
-                                final_plans.append({
-                                    "Plan Name": p,
-                                    "Premium": user_inputs[f"{p}_prem"],
-                                    "Notes": user_inputs[f"{p}_note"]
-                                })
-                            
-                            quote_data = {
-                                "quote_id": quote_id, "date": today_str, "rm": sel_rm,
-                                "client": client_name, "city": city, "type": pol_type, "crm_link": crm_link,
-                                "plans": final_plans
-                            }
-                            
-                            if log_quote_to_sheet(ws, quote_data):
-                                target_url = f"{APP_BASE_URL}?quote_id={quote_id}"
-                                st.success(f"✅ Quote **{quote_id}** Generated!")
-                                st.markdown(f"""
-                                <a href="{target_url}" target="_blank" style="text-decoration:none;">
-                                    <div style="background-color:#4CAF50; color:white; padding:15px; border-radius:8px; text-align:center; font-weight:bold; font-size:18px; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
-                                        🔗 OPEN DIGITAL QUOTE
-                                    </div>
-                                </a>
-                                """, unsafe_allow_html=True)
-                            else:
-                                st.error("Log failed.")
-            else:
-                st.info("👈 Select plans.")
-
-# --- 6. MAIN APP LOGIC ---
 def main():
-    # 🚨 CRITICAL: THIS MUST BE THE FIRST STREAMLIT COMMAND
-    # We set layout="wide" globally. We control the rest via CSS.
-    st.set_page_config(page_title="Quote Tool", page_icon="📝", layout="wide", initial_sidebar_state="collapsed")
+    st.set_page_config(page_title="Quote Tool", layout="wide", initial_sidebar_state="collapsed")
+    if "quote_id" in st.query_params: render_quote_viewer(st.query_params["quote_id"])
+    else: render_generator()
 
-    # Routing
-    if "quote_id" in st.query_params:
-        render_quote_viewer(st.query_params["quote_id"])
-    else:
-        render_generator()
-
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
