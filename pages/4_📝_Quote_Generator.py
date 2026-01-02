@@ -21,36 +21,35 @@ def get_gspread_client():
         return None
 
 # --- 3. HELPER: LOAD MASTER DATA ---
-@st.cache_data(ttl=600) # Cache data for 10 mins to speed up reloading
+@st.cache_data(ttl=600)
 def load_master_data():
     client = get_gspread_client()
     if not client: return None, None
     
     try:
-        # Open the Sheet
         sheet = client.open_by_url(SHEET_URL)
         
-        # 1. Load Dropdowns
-        ws_dropdowns = sheet.worksheet("Dropdown_Masters")
+        # --- DEBUG: LIST ALL WORKSHEETS ---
+        worksheets = sheet.worksheets()
+        st.write("found these tabs in your sheet:")
+        for ws in worksheets:
+            st.code(ws.title) # Copy this name exactly!
+        # ----------------------------------
+
+        # Attempt to load (this might still fail until you update the names below)
+        ws_dropdowns = sheet.worksheet("Dropdown_Masters") 
         data_dropdowns = ws_dropdowns.get_all_records()
         df_dropdowns = pd.DataFrame(data_dropdowns)
         
-        # 2. Load Plans
         ws_plans = sheet.worksheet("Plans_Master")
         data_plans = ws_plans.get_all_records()
         df_plans = pd.DataFrame(data_plans)
         
         return df_dropdowns, df_plans
-        
-    except gspread.exceptions.SpreadsheetNotFound:
-        st.error("❌ Error: Spreadsheet not found. Please check the URL.")
-        return None, None
-    except gspread.exceptions.WorksheetNotFound as e:
-        st.error(f"❌ Error: Worksheet not found. Check if tabs named 'Dropdown_Masters' and 'Plans_Master' exist.\nDetails: {e}")
-        return None, None
+
     except Exception as e:
-        st.error(f"❌ Unexpected Error: {e}")
-        return None, None
+        st.error(f"Error Details: {e}")
+        return None, NoneNone
 
 # --- 4. MAIN APP UI ---
 def main():
