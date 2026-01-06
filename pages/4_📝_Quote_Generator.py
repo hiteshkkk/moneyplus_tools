@@ -9,7 +9,7 @@ import streamlit.components.v1 as components
 
 # --- 1. CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 REPLACE THIS
-APP_BASE_URL = "https://moneyplustools.streamlit.app/View_Quote" 
+APP_BASE_URL = "https://moneyplustools.streamlit.app/Quote_Generator" 
 ADMIN_PASSWORD = "admin" # 🔒 Change this
 
 # --- 2. CSS STYLES ---
@@ -78,11 +78,9 @@ def load_master_data():
             df_foot = pd.DataFrame(r_foot[1:], columns=r_foot[0]) if len(r_foot) > 1 else pd.DataFrame()
         except: df_foot = pd.DataFrame()
 
-        # NEW: Quotes Master
         try:
             ws_q = sheet.worksheet("Quotes_Master")
             r_q = ws_q.get_all_values()
-            # Just take column A as list
             quotes_list = [row[0] for row in r_q[1:] if row]
         except: quotes_list = []
 
@@ -94,7 +92,6 @@ def generate_secure_id(rm_name, row_count, p_type):
     date_str = datetime.datetime.now().strftime("%Y%m%d")
     unique_no = str(row_count + 1)
     type_suffix = "F" if p_type == "Fresh" else "P"
-    # Format: RM-DATE-ROW-TYPE (e.g., PJ-20250112-55-F)
     return f"{initials}-{date_str}-{unique_no}-{type_suffix}"
 
 def log_quote_to_sheet(ws, q):
@@ -144,7 +141,17 @@ def fetch_quote_data(quote_id):
 
 # --- 4. VIEWER ---
 def render_quote_viewer(quote_id):
-    st.set_page_config(page_title=f"Quote {quote_id}", layout="wide", initial_sidebar_state="collapsed")
+    quote_data = fetch_quote_data(quote_id)
+    
+    # Dynamic Title for WhatsApp Preview
+    page_title = f"Health Proposal for {quote_data['client']}" if quote_data else "MoneyPlus Quote"
+    
+    st.set_page_config(
+        page_title=page_title, 
+        page_icon="🏥", # We can use an emoji or a local file path if uploaded
+        layout="wide", 
+        initial_sidebar_state="collapsed"
+    )
     
     st.markdown("""
         <style>
@@ -154,14 +161,11 @@ def render_quote_viewer(quote_id):
         </style>
     """, unsafe_allow_html=True)
     
-    quote_data = fetch_quote_data(quote_id)
     if not quote_data: st.error("Quote not found."); return
 
     _, df_plans, df_config, df_faq, df_foot, quotes_list = load_master_data()
     
     client = quote_data['client']
-    
-    # Extract RM Initials (PJ-2025...) -> PJ
     try: rm_initials = quote_id.split('-')[0]
     except: rm_initials = "GEN"
 
@@ -169,7 +173,6 @@ def render_quote_viewer(quote_id):
     whatsapp_msg = f"I need more help with my quote {APP_BASE_URL}?quote_id={quote_id}"
     whatsapp_link = f"https://wa.me/918087058000?text={whatsapp_msg.replace(' ', '%20')}"
 
-    # Random Quote
     random_quote = random.choice(quotes_list) if quotes_list else "Health is wealth. Protect it today."
 
     # 1. PLAN CARDS
@@ -227,11 +230,13 @@ def render_quote_viewer(quote_id):
                         <div class="accordion-content">{content_rows}</div>
                     </div>"""
 
-    # 3. FAQ & Footer
+    # 3. FAQ (Multiline Fix Applied)
     faq_html = ""
     if not df_faq.empty:
         for _, row in df_faq.iterrows():
-            if row.get("Question"): faq_html += f'<div class="faq-item"><div class="faq-q">❓ {row["Question"]}</div><div class="faq-a">{row["Answer"]}</div></div>'
+            q = row.get("Question", "")
+            a = str(row.get("Answer", "")).replace('\n', '<br>') # ✅ FIX APPLIED
+            if q: faq_html += f'<div class="faq-item"><div class="faq-q">❓ {q}</div><div class="faq-a">{a}</div></div>'
 
     footer_text_html = ""
     if not df_foot.empty:
@@ -256,7 +261,6 @@ def render_quote_viewer(quote_id):
         .c-label {{ font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; }}
         .c-val {{ font-size: 15px; font-weight: 600; color: #0f172a; }}
 
-        /* Avoid breaking card inside print */
         .plan-card {{ break-inside: avoid; page-break-inside: avoid; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #4CAF50; overflow: hidden; }}
         .plans-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }}
         .plan-header {{ padding: 15px; background: #fff; font-size: 16px; font-weight: 700; color: #14532d; border-bottom: 1px solid #f1f5f9; }}
@@ -447,7 +451,7 @@ def render_generator():
                 if not client: st.error("Client Name Required"); return
                 
                 ws, cnt, _ = get_sheet_and_rows()
-                qid = generate_secure_id(rm, cnt, p_type) # New simple ID logic
+                qid = generate_secure_id(rm, cnt, p_type) # Always new ID
                 
                 final_plans = [{"Plan Name":p, "Premium":user_inputs[f"{p}_p"], "Notes":user_inputs[f"{p}_n"]} for p in sel_plans[:5]]
                 q_data = {
