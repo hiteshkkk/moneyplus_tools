@@ -10,7 +10,7 @@ import streamlit.components.v1 as components
 # --- 1. CONFIGURATION ---
 SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 REPLACE THIS
 APP_BASE_URL = "https://moneyplustools.streamlit.app/View_Quote" 
-ADMIN_PASSWORD = "admin" # 🔒 Change this to a secure password
+ADMIN_PASSWORD = "admin" # 🔒 Change this
 
 # --- 2. CSS STYLES ---
 ST_STYLE = """
@@ -48,51 +48,54 @@ def get_sheet_and_rows():
 @st.cache_data(ttl=600)
 def load_master_data():
     client = get_gspread_client()
-    if not client: return None, None, None, None, None
+    if not client: return None, None, None, None, None, None
     try:
         sheet = client.open_by_url(SHEET_URL)
         
-        # 1. Dropdowns
         ws_drop = sheet.worksheet("Dropdown_Masters")
         r_drop = ws_drop.get_all_values()
         df_drop = pd.DataFrame(r_drop[1:], columns=r_drop[0]) if len(r_drop) > 1 else pd.DataFrame()
         
-        # 2. Plans Master
         ws_plans = sheet.worksheet("Plans_Master")
         r_plans = ws_plans.get_all_values()
         df_plans = pd.DataFrame(r_plans[3:], columns=r_plans[2]) if len(r_plans) > 3 else pd.DataFrame()
 
-        # 3. Feature Config
         try:
             ws_config = sheet.worksheet("Feature_Config")
             r_config = ws_config.get_all_values()
             df_config = pd.DataFrame(r_config[1:], columns=r_config[0]) if len(r_config) > 1 else pd.DataFrame()
         except: df_config = pd.DataFrame()
 
-        # 4. FAQ Master
         try:
             ws_faq = sheet.worksheet("FAQ_Master")
             r_faq = ws_faq.get_all_values()
             df_faq = pd.DataFrame(r_faq[1:], columns=r_faq[0]) if len(r_faq) > 1 else pd.DataFrame()
         except: df_faq = pd.DataFrame()
 
-        # 5. Footer Master
         try:
             ws_foot = sheet.worksheet("Footer_Master")
             r_foot = ws_foot.get_all_values()
             df_foot = pd.DataFrame(r_foot[1:], columns=r_foot[0]) if len(r_foot) > 1 else pd.DataFrame()
         except: df_foot = pd.DataFrame()
 
-        return df_drop, df_plans, df_config, df_faq, df_foot
-    except: return None, None, None, None, None
+        # NEW: Quotes Master
+        try:
+            ws_q = sheet.worksheet("Quotes_Master")
+            r_q = ws_q.get_all_values()
+            # Just take column A as list
+            quotes_list = [row[0] for row in r_q[1:] if row]
+        except: quotes_list = []
 
-def generate_secure_id(rm_name, row_count):
+        return df_drop, df_plans, df_config, df_faq, df_foot, quotes_list
+    except: return None, None, None, None, None, None
+
+def generate_secure_id(rm_name, row_count, p_type):
     initials = "".join([x[0].upper() for x in rm_name.split() if x])
     date_str = datetime.datetime.now().strftime("%Y%m%d")
     unique_no = str(row_count + 1)
-    # Random suffix to prevent ID guessing
-    random_suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=3))
-    return f"{initials}-{date_str}-{unique_no}-{random_suffix}"
+    type_suffix = "F" if p_type == "Fresh" else "P"
+    # Format: RM-DATE-ROW-TYPE (e.g., PJ-20250112-55-F)
+    return f"{initials}-{date_str}-{unique_no}-{type_suffix}"
 
 def log_quote_to_sheet(ws, q):
     try:
@@ -154,19 +157,20 @@ def render_quote_viewer(quote_id):
     quote_data = fetch_quote_data(quote_id)
     if not quote_data: st.error("Quote not found."); return
 
-    _, df_plans, df_config, df_faq, df_foot = load_master_data()
+    _, df_plans, df_config, df_faq, df_foot, quotes_list = load_master_data()
     
     client = quote_data['client']
     
-    # Extract RM Initials for Buy Link (First part of Quote ID: RM-DATE-ROW-RAND)
-    try:
-        rm_initials = quote_id.split('-')[0]
-    except:
-        rm_initials = "GEN" # Fallback
+    # Extract RM Initials (PJ-2025...) -> PJ
+    try: rm_initials = quote_id.split('-')[0]
+    except: rm_initials = "GEN"
 
     buy_link = f"https://health.moneyplus.in?id={rm_initials}"
     whatsapp_msg = f"I need more help with my quote {APP_BASE_URL}?quote_id={quote_id}"
     whatsapp_link = f"https://wa.me/918087058000?text={whatsapp_msg.replace(' ', '%20')}"
+
+    # Random Quote
+    random_quote = random.choice(quotes_list) if quotes_list else "Health is wealth. Protect it today."
 
     # 1. PLAN CARDS
     plans_html = ""
@@ -203,7 +207,6 @@ def render_quote_viewer(quote_id):
                         val = str(plan_data_row.iloc[0][plan])
                         val_cleaned = val.replace('\n', '<br>')
                         
-                        # Hyperlink Detection
                         if "http" in val_cleaned:
                             urls = [word for word in val.split() if word.startswith('http')]
                             if urls: val_cleaned = f'<a href="{urls[0]}" target="_blank" style="color:#2E7D32; text-decoration:underline;">Click to View</a>'
@@ -213,7 +216,6 @@ def render_quote_viewer(quote_id):
                         if any(w in val_lower for w in good_words): css_class = "val-good"; status_icon = "✅"
                         elif any(w in val_lower for w in bad_words): css_class = "val-bad"; status_icon = "⚠️"
                         
-                        # Grid Layout for Multiline Support
                         content_rows += f"""<div class="comp-row"><div class="comp-label">{plan}</div><div class="comp-val"><span class="{css_class}">{val_cleaned} {status_icon}</span></div></div>"""
                     
                     accordion_html += f"""
@@ -254,26 +256,29 @@ def render_quote_viewer(quote_id):
         .c-label {{ font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; }}
         .c-val {{ font-size: 15px; font-weight: 600; color: #0f172a; }}
 
+        /* Avoid breaking card inside print */
+        .plan-card {{ break-inside: avoid; page-break-inside: avoid; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #4CAF50; overflow: hidden; }}
         .plans-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }}
-        .plan-card {{ background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #4CAF50; overflow: hidden; }}
         .plan-header {{ padding: 15px; background: #fff; font-size: 16px; font-weight: 700; color: #14532d; border-bottom: 1px solid #f1f5f9; }}
         .plan-prem {{ padding: 15px; font-size: 20px; font-weight: 800; color: #1e3a8a; }}
         .plan-notes {{ padding: 15px; background: #fffbeb; font-size: 13px; color: #4b5563; line-height: 1.5; border-top: 1px solid #fef3c7; }}
 
-        .section-title {{ font-size: 18px; font-weight: 700; color: #111; margin: 40px 0 15px; border-bottom: 2px solid #4CAF50; display: inline-block; padding-bottom: 5px; }}
+        .pro-tip {{ background: #fff7ed; border-left: 4px solid #ea580c; padding: 15px; margin: 30px 0; border-radius: 4px; break-inside: avoid; }}
+        .pro-title {{ color: #9a3412; font-weight: 700; font-size: 15px; margin-bottom: 5px; }}
+        .pro-text {{ color: #431407; font-size: 13px; line-height: 1.5; }}
+
+        .section-title {{ font-size: 18px; font-weight: 700; color: #111; margin: 40px 0 15px; border-bottom: 2px solid #4CAF50; display: inline-block; padding-bottom: 5px; page-break-after: avoid; }}
         .controls {{ margin-bottom: 15px; text-align: right; }}
         .btn-ctrl {{ font-size: 12px; cursor: pointer; color: #2E7D32; text-decoration: underline; margin-left: 15px; background: none; border: none; }}
         
-        .accordion-item {{ border: 1px solid #e2e8f0; margin-bottom: 8px; border-radius: 6px; overflow: hidden; }}
+        .accordion-item {{ border: 1px solid #e2e8f0; margin-bottom: 8px; border-radius: 6px; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }}
         .accordion-header {{ padding: 12px 15px; background: #f8fafc; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }}
         .accordion-header:hover {{ background: #f1f5f9; }}
         .acc-left {{ font-weight: 600; font-size: 15px; color: #334155; }}
         .acc-desc {{ font-weight: 400; font-size: 12px; color: #64748b; margin-left: 5px; display: inline-block; }}
         .chevron {{ font-size: 12px; color: #94a3b8; transition: 0.3s; }}
-        
         .accordion-content {{ max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: white; }}
         
-        /* GRID ALIGNMENT for Multiline */
         .comp-row {{ display: grid; grid-template-columns: 35% 65%; padding: 12px 15px; border-top: 1px solid #f1f5f9; font-size: 13px; align-items: start; }}
         .comp-label {{ font-weight: 600; color: #475569; }}
         .comp-val {{ text-align: right; color: #0f172a; white-space: pre-wrap; }}
@@ -285,7 +290,9 @@ def render_quote_viewer(quote_id):
         .val-good {{ color: #15803d; font-weight: 600; background: #dcfce7; padding: 2px 6px; border-radius: 4px; }}
         .val-bad {{ color: #b91c1c; font-weight: 600; background: #fee2e2; padding: 2px 6px; border-radius: 4px; }}
 
-        .faq-item {{ margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; }}
+        .quote-box {{ text-align: center; margin: 40px 0; padding: 20px; background: #f0fdf4; border-radius: 8px; color: #166534; font-style: italic; font-weight: 500; border: 1px dashed #4CAF50; break-inside: avoid; }}
+
+        .faq-item {{ margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; break-inside: avoid; }}
         .faq-q {{ font-weight: 700; color: #1e293b; margin-bottom: 5px; }}
         .faq-a {{ font-size: 13px; color: #475569; line-height: 1.5; }}
 
@@ -313,22 +320,34 @@ def render_quote_viewer(quote_id):
                 <div><div class="c-label">Quote ID</div><div class="c-val">{quote_id}</div></div>
                 <div><div class="c-label">Date</div><div class="c-val">{quote_data['date']}</div></div>
             </div>
+            
             <div class="section-title">Selected Plans</div>
             <div class="plans-grid">{plans_html}</div>
+            
+            <div class="pro-tip">
+                <div class="pro-title">🚀 Pro-tip: Beat the Premium Hike</div>
+                <div class="pro-text">Medical costs rise every year, and so do insurance premiums. But you can outsmart inflation! Opt for a multi-year plan (3 or 5 years) to freeze your premium at today’s rate and enjoy an extra discount. Same protection, significantly lower cost.</div>
+            </div>
+
             <div class="section-title">Feature Comparison</div>
             <div class="controls no-print">
                 <button class="btn-ctrl" onclick="expandAll()">[+] Expand All</button>
                 <button class="btn-ctrl" onclick="collapseAll()">[-] Collapse All</button>
             </div>
             {accordion_html}
+            
+            <div class="quote-box">
+                 🧠 Food for Thought: "{random_quote}"
+            </div>
+
             <div class="section-title">Frequently Asked Questions</div>
             {faq_html}
             <div class="static-footer">{footer_text_html}</div>
         </div>
         <div class="sticky-footer no-print">
-            <a href="#" onclick="window.print(); return false;" class="f-btn btn-print">🖨️ Print Quote</a>
             <a href="{whatsapp_link}" target="_blank" class="f-btn btn-help">💬 Need Help?</a>
             <a href="{buy_link}" target="_blank" class="f-btn btn-buy">🛒 Buy Now</a>
+            <a href="#" onclick="window.print(); return false;" class="f-btn btn-print">🖨️ Print Quote</a>
         </div>
         <script>
             function toggleAccordion(element) {{
@@ -378,7 +397,7 @@ def render_generator():
 
     loaded = st.session_state.get('edit_data', None)
 
-    with st.spinner("Syncing..."): df_drop, df_plans, _, _, _ = load_master_data()
+    with st.spinner("Syncing..."): df_drop, df_plans, _, _, _, _ = load_master_data()
     
     if df_plans is not None:
         c1, c2, c3, c4 = st.columns(4)
@@ -428,7 +447,7 @@ def render_generator():
                 if not client: st.error("Client Name Required"); return
                 
                 ws, cnt, _ = get_sheet_and_rows()
-                qid = generate_secure_id(rm, cnt) # Always new ID
+                qid = generate_secure_id(rm, cnt, p_type) # New simple ID logic
                 
                 final_plans = [{"Plan Name":p, "Premium":user_inputs[f"{p}_p"], "Notes":user_inputs[f"{p}_n"]} for p in sel_plans[:5]]
                 q_data = {
