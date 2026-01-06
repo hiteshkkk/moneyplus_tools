@@ -51,7 +51,6 @@ def load_master_data():
     if not client: return None, None, None, None, None, None
     try:
         sheet = client.open_by_url(SHEET_URL)
-        
         ws_drop = sheet.worksheet("Dropdown_Masters")
         r_drop = ws_drop.get_all_values()
         df_drop = pd.DataFrame(r_drop[1:], columns=r_drop[0]) if len(r_drop) > 1 else pd.DataFrame()
@@ -90,9 +89,9 @@ def load_master_data():
 def generate_secure_id(rm_name, row_count, p_type):
     initials = "".join([x[0].upper() for x in rm_name.split() if x])
     date_str = datetime.datetime.now().strftime("%Y%m%d")
-    unique_no = str(row_count + 1)
+    random_no = str(random.randint(100, 999)) # Random 3-digit
     type_suffix = "F" if p_type == "Fresh" else "P"
-    return f"{initials}-{date_str}-{unique_no}-{type_suffix}"
+    return f"{initials}{date_str}{random_no}{type_suffix}"
 
 def log_quote_to_sheet(ws, q):
     try:
@@ -142,16 +141,9 @@ def fetch_quote_data(quote_id):
 # --- 4. VIEWER ---
 def render_quote_viewer(quote_id):
     quote_data = fetch_quote_data(quote_id)
-    
-    # Dynamic Title for WhatsApp Preview
     page_title = f"Health Proposal for {quote_data['client']}" if quote_data else "MoneyPlus Quote"
     
-    st.set_page_config(
-        page_title=page_title, 
-        page_icon="🏥", # We can use an emoji or a local file path if uploaded
-        layout="wide", 
-        initial_sidebar_state="collapsed"
-    )
+    st.set_page_config(page_title=page_title, page_icon="🏥", layout="wide", initial_sidebar_state="collapsed")
     
     st.markdown("""
         <style>
@@ -166,30 +158,23 @@ def render_quote_viewer(quote_id):
     _, df_plans, df_config, df_faq, df_foot, quotes_list = load_master_data()
     
     client = quote_data['client']
-    try: rm_initials = quote_id.split('-')[0]
+    try: rm_initials = quote_id[:2]
     except: rm_initials = "GEN"
 
     buy_link = f"https://health.moneyplus.in?id={rm_initials}"
     whatsapp_msg = f"I need more help with my quote {APP_BASE_URL}?quote_id={quote_id}"
     whatsapp_link = f"https://wa.me/918087058000?text={whatsapp_msg.replace(' ', '%20')}"
-
     random_quote = random.choice(quotes_list) if quotes_list else "Health is wealth. Protect it today."
 
-    # 1. PLAN CARDS
+    # 1. HTML GENERATION
     plans_html = ""
     active_plans_names = []
     for p in quote_data['plans']:
         active_plans_names.append(p['Plan Name'])
         p_prem = p['Premium'].replace('\n', '<br>')
         p_note = p['Notes'].replace('\n', '<br>')
-        plans_html += f"""
-        <div class="plan-card">
-            <div class="plan-header">{p['Plan Name']}</div>
-            <div class="plan-prem">{p_prem}</div>
-            <div class="plan-notes"><strong>📝 Notes:</strong><br>{p_note}</div>
-        </div>"""
+        plans_html += f"""<div class="plan-card"><div class="plan-header">{p['Plan Name']}</div><div class="plan-prem">{p_prem}</div><div class="plan-notes"><strong>📝 Notes:</strong><br>{p_note}</div></div>"""
 
-    # 2. ACCORDION
     accordion_html = ""
     if df_plans is not None and not df_plans.empty and active_plans_names:
         if not df_config.empty:
@@ -198,52 +183,38 @@ def render_quote_viewer(quote_id):
                 display_title = config_row.get("Display_Title", raw_name)
                 explanation = config_row.get("Explanation", "")
                 icon = config_row.get("Icon", "🔹")
-                
                 good_words = [w.strip().lower() for w in config_row.get("Good_Words", "").split(",") if w.strip()]
                 bad_words = [w.strip().lower() for w in config_row.get("Bad_Words", "").split(",") if w.strip()]
-
                 plan_data_row = df_plans[df_plans.iloc[:, 1] == raw_name]
-                
                 if not plan_data_row.empty:
                     content_rows = ""
                     for plan in active_plans_names:
                         val = str(plan_data_row.iloc[0][plan])
                         val_cleaned = val.replace('\n', '<br>')
-                        
                         if "http" in val_cleaned:
                             urls = [word for word in val.split() if word.startswith('http')]
                             if urls: val_cleaned = f'<a href="{urls[0]}" target="_blank" style="color:#2E7D32; text-decoration:underline;">Click to View</a>'
-                        
                         val_lower = val.lower()
                         css_class = "val-neutral"; status_icon = ""
                         if any(w in val_lower for w in good_words): css_class = "val-good"; status_icon = "✅"
                         elif any(w in val_lower for w in bad_words): css_class = "val-bad"; status_icon = "⚠️"
-                        
                         content_rows += f"""<div class="comp-row"><div class="comp-label">{plan}</div><div class="comp-val"><span class="{css_class}">{val_cleaned} {status_icon}</span></div></div>"""
-                    
-                    accordion_html += f"""
-                    <div class="accordion-item">
-                        <div class="accordion-header" onclick="toggleAccordion(this)">
-                            <div class="acc-left"><span class="acc-icon">{icon}</span> {display_title} <span class="acc-desc"> - {explanation}</span></div>
-                            <div class="chevron">▼</div>
-                        </div>
-                        <div class="accordion-content">{content_rows}</div>
-                    </div>"""
+                    accordion_html += f"""<div class="accordion-item"><div class="accordion-header" onclick="toggleAccordion(this)"><div class="acc-left"><span class="acc-icon">{icon}</span> {display_title} <span class="acc-desc"> - {explanation}</span></div><div class="chevron">▼</div></div><div class="accordion-content">{content_rows}</div></div>"""
 
-    # 3. FAQ (Multiline Fix Applied)
     faq_html = ""
     if not df_faq.empty:
         for _, row in df_faq.iterrows():
-            q = row.get("Question", "")
-            a = str(row.get("Answer", "")).replace('\n', '<br>') # ✅ FIX APPLIED
-            if q: faq_html += f'<div class="faq-item"><div class="faq-q">❓ {q}</div><div class="faq-a">{a}</div></div>'
+            if row.get("Question"): 
+                q = row.get("Question", "")
+                a = str(row.get("Answer", "")).replace('\n', '<br>')
+                faq_html += f'<div class="faq-item"><div class="faq-q">❓ {q}</div><div class="faq-a">{a}</div></div>'
 
     footer_text_html = ""
     if not df_foot.empty:
         for _, row in df_foot.iterrows():
             if row.get("Content"): footer_text_html += f"<p>{row['Content']}</p>"
 
-    # 4. FINAL HTML
+    # 4. FINAL HTML WITH GOOGLE TRANSLATE
     full_html = f"""
     <!DOCTYPE html>
     <html>
@@ -251,8 +222,16 @@ def render_quote_viewer(quote_id):
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
-        body {{ margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; color: #1f2937; }}
-        .header {{ text-align: center; padding: 30px 20px 20px; border-bottom: 1px solid #eee; }}
+        body {{ margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; color: #1f2937; top: 0 !important; }}
+        
+        /* GOOGLE TRANSLATE CUSTOM STYLES */
+        #google_translate_element {{ text-align: center; margin-top: 10px; }}
+        .goog-te-gadget-simple {{ background-color: #f0fdf4 !important; border: 1px solid #4CAF50 !important; padding: 5px 10px !important; border-radius: 20px !important; font-size: 13px !important; line-height: 20px !important; display: inline-block; cursor: pointer; zoom: 1; }}
+        .goog-te-gadget-simple a {{ text-decoration: none !important; color: #166534 !important; font-weight: bold !important; }}
+        .goog-te-banner-frame {{ display: none !important; }} 
+        body {{ top: 0px !important; }} /* Hides top banner gap */
+
+        .header {{ text-align: center; padding: 20px 20px 20px; border-bottom: 1px solid #eee; }}
         .header img {{ height: 60px; margin-bottom: 10px; }}
         .header h1 {{ margin: 0; font-size: 24px; color: #2E7D32; font-weight: 700; }}
         .container {{ max-width: 900px; margin: 0 auto; padding: 0 20px 120px; }}
@@ -282,24 +261,19 @@ def render_quote_viewer(quote_id):
         .acc-desc {{ font-weight: 400; font-size: 12px; color: #64748b; margin-left: 5px; display: inline-block; }}
         .chevron {{ font-size: 12px; color: #94a3b8; transition: 0.3s; }}
         .accordion-content {{ max-height: 0; overflow: hidden; transition: max-height 0.3s ease-out; background: white; }}
-        
         .comp-row {{ display: grid; grid-template-columns: 35% 65%; padding: 12px 15px; border-top: 1px solid #f1f5f9; font-size: 13px; align-items: start; }}
         .comp-label {{ font-weight: 600; color: #475569; }}
         .comp-val {{ text-align: right; color: #0f172a; white-space: pre-wrap; }}
-        
         .active .chevron {{ transform: rotate(180deg); }}
         .active .accordion-content {{ max-height: 2000px; }}
         .active .accordion-header {{ background: #dcfce7; }}
-
         .val-good {{ color: #15803d; font-weight: 600; background: #dcfce7; padding: 2px 6px; border-radius: 4px; }}
         .val-bad {{ color: #b91c1c; font-weight: 600; background: #fee2e2; padding: 2px 6px; border-radius: 4px; }}
 
         .quote-box {{ text-align: center; margin: 40px 0; padding: 20px; background: #f0fdf4; border-radius: 8px; color: #166534; font-style: italic; font-weight: 500; border: 1px dashed #4CAF50; break-inside: avoid; }}
-
         .faq-item {{ margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; break-inside: avoid; }}
         .faq-q {{ font-weight: 700; color: #1e293b; margin-bottom: 5px; }}
         .faq-a {{ font-size: 13px; color: #475569; line-height: 1.5; }}
-
         .static-footer {{ text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; }}
 
         .sticky-footer {{ position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #ccc; padding: 10px 0; display: flex; justify-content: space-around; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }}
@@ -307,12 +281,24 @@ def render_quote_viewer(quote_id):
         .btn-print {{ background: #f1f5f9; color: #334155; }}
         .btn-help {{ background: #22c55e; color: white; }}
         .btn-buy {{ background: #2563eb; color: white; }}
-
         @media (max-width: 600px) {{ .acc-desc {{ display: block; margin-left: 24px; margin-top: 2px; }} .sticky-footer {{ padding: 10px 5px; }} .f-btn {{ padding: 10px 5px; font-size: 12px; margin: 0 2px; }} }}
-        @media print {{ .no-print, .sticky-footer, .controls {{ display: none; }} .accordion-content {{ max-height: none !important; display: block; }} }}
+        @media print {{ .no-print, .sticky-footer, .controls, #google_translate_element {{ display: none; }} .accordion-content {{ max-height: none !important; display: block; }} }}
     </style>
+    
+    <script type="text/javascript">
+    function googleTranslateElementInit() {{
+      new google.translate.TranslateElement({{
+        pageLanguage: 'en', 
+        includedLanguages: 'en,hi,mr,gu,ml,ta,kn,te,bn', 
+        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
+      }}, 'google_translate_element');
+    }}
+    </script>
+    <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
+
     </head>
     <body>
+        <div id="google_translate_element"></div>
         <div class="header">
             <img src="https://moneyplus.in/wp-content/uploads/2019/01/moneyplus-logo-3-300x277.png" alt="MoneyPlus">
             <h1>Health Insurance Quotes</h1>
