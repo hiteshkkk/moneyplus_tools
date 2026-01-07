@@ -12,9 +12,41 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztp
 APP_BASE_URL = "https://moneyplustools.streamlit.app/Quote_Generator" 
 ADMIN_PASSWORD = "admin" # 🔒 Change this
 
-# --- 2. CSS STYLES ---
+# --- 2. CSS STYLES (THE NUCLEAR VERSION) ---
 ST_STYLE = """
 <style>
+    /* 1. HIDE STANDARD STREAMLIT UI */
+    [data-testid="stHeader"], 
+    [data-testid="stSidebar"], 
+    [data-testid="stToolbar"], 
+    .stDeployButton,            /* Hides Deploy Button */
+    [data-testid="stDecoration"], /* Hides top decoration bar */
+    footer, 
+    #MainMenu {
+        display: none !important;
+        visibility: hidden !important;
+        height: 0 !important;
+    }
+
+    /* 2. REMOVE WHITE SPACE AT TOP */
+    .block-container {
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
+        margin-top: 0 !important;
+    }
+    
+    /* 3. FORCE LIGHT BACKGROUND UNIVERSALLY */
+    .stApp {
+        background-color: #ffffff;
+        margin-top: -60px; /* Pulls content up to cover the header gap */
+    }
+
+    /* 4. HIDE 'MANAGE APP' BUTTON (Streamlit Cloud specific) */
+    .stApp > header {
+        display: none !important;
+    }
+    
+    /* 5. YOUR CUSTOM BRANDING */
     .stMultiSelect span[data-baseweb="tag"] { background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important; }
     .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
     div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
@@ -51,6 +83,7 @@ def load_master_data():
     if not client: return None, None, None, None, None, None
     try:
         sheet = client.open_by_url(SHEET_URL)
+        
         ws_drop = sheet.worksheet("Dropdown_Masters")
         r_drop = ws_drop.get_all_values()
         df_drop = pd.DataFrame(r_drop[1:], columns=r_drop[0]) if len(r_drop) > 1 else pd.DataFrame()
@@ -91,6 +124,7 @@ def generate_secure_id(rm_name, row_count, p_type):
     date_str = datetime.datetime.now().strftime("%Y%m%d")
     random_no = str(random.randint(100, 999)) # Random 3-digit
     type_suffix = "F" if p_type == "Fresh" else "P"
+    # Format: PJ20260106846F
     return f"{initials}{date_str}{random_no}{type_suffix}"
 
 def log_quote_to_sheet(ws, q):
@@ -145,6 +179,7 @@ def render_quote_viewer(quote_id):
     
     st.set_page_config(page_title=page_title, page_icon="🏥", layout="wide", initial_sidebar_state="collapsed")
     
+    # APPLY NUCLEAR CSS IN VIEWER MODE TOO
     st.markdown("""
         <style>
             [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
@@ -224,12 +259,11 @@ def render_quote_viewer(quote_id):
     <style>
         body {{ margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; color: #1f2937; top: 0 !important; }}
         
-        /* GOOGLE TRANSLATE CUSTOM STYLES */
         #google_translate_element {{ text-align: center; margin-top: 10px; }}
         .goog-te-gadget-simple {{ background-color: #f0fdf4 !important; border: 1px solid #4CAF50 !important; padding: 5px 10px !important; border-radius: 20px !important; font-size: 13px !important; line-height: 20px !important; display: inline-block; cursor: pointer; zoom: 1; }}
         .goog-te-gadget-simple a {{ text-decoration: none !important; color: #166534 !important; font-weight: bold !important; }}
         .goog-te-banner-frame {{ display: none !important; }} 
-        body {{ top: 0px !important; }} /* Hides top banner gap */
+        body {{ top: 0px !important; }}
 
         .header {{ text-align: center; padding: 20px 20px 20px; border-bottom: 1px solid #eee; }}
         .header img {{ height: 60px; margin-bottom: 10px; }}
