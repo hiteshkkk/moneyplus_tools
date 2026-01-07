@@ -1,0 +1,10 @@
+[client]
+toolbarMode = "viewer"      # Hides the developer hamburger menu for users
+showErrorDetails = false    # Hides technical error messages (good for production)
+
+[ui]
+hideTopBar = true           # Hides the colorful Streamlit running bar at the top
+
+[theme]
+base = "light"              # Forces light mode (prevents random dark mode switching)
+primaryColor = "#4CAF50"    # Sets your MoneyPlus Green as the main theme color
