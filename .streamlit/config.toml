@@ -1,3 +1,1 @@
-[theme]
-primaryColor = "#4CAF50"    # Sets your MoneyPlus Green as the main theme color
-base = "dark"              # Forces light mode (prevents random dark mode switching)
+
