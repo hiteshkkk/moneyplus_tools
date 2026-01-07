@@ -22,31 +22,38 @@ ST_STYLE = """
     .stDeployButton,            /* Hides Deploy Button */
     [data-testid="stDecoration"], /* Hides top decoration bar */
     footer, 
+    [data-testid="stFooter"],   /* Hides the "Made with Streamlit" footer */
     #MainMenu {
         display: none !important;
         visibility: hidden !important;
         height: 0 !important;
     }
 
-    /* 2. REMOVE WHITE SPACE AT TOP */
+    /* 2. SPECIFICALLY HIDE "MANAGE APP" / VIEWER BADGE (Bottom Right) */
+    [class*="viewerBadge"] {
+        display: none !important;
+        visibility: hidden !important;
+    }
+
+    /* 3. REMOVE WHITE SPACE AT TOP */
     .block-container {
         padding-top: 0 !important;
         padding-bottom: 0 !important;
         margin-top: 0 !important;
     }
     
-    /* 3. FORCE LIGHT BACKGROUND UNIVERSALLY */
+    /* 4. FORCE LIGHT BACKGROUND UNIVERSALLY */
     .stApp {
         background-color: #ffffff;
         margin-top: -60px; /* Pulls content up to cover the header gap */
     }
 
-    /* 4. HIDE 'MANAGE APP' BUTTON (Streamlit Cloud specific) */
+    /* 5. HIDE 'MANAGE APP' BUTTON (Streamlit Cloud specific header) */
     .stApp > header {
         display: none !important;
     }
     
-    /* 5. YOUR CUSTOM BRANDING */
+    /* 6. YOUR CUSTOM BRANDING */
     .stMultiSelect span[data-baseweb="tag"] { background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important; }
     .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
     div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
