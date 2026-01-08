@@ -9,104 +9,124 @@ import datetime
 # --- CONFIGURATION ---
 SHEET_ID = "182JF4alQGimymohEsq9IS3x3PLNnPPqHaH0AMJIxBGU"
 
-# --- MASTER STYLING (Ashwin Plan - Browser Print Ready) ---
+# --- MASTER STYLING (THE PRO DESIGN) ---
 MASTER_CSS = """
 <style>
-    /* Print Settings */
+    /* ---- Base & Print Settings ---- */
     @media print {
-        @page { size: A4; margin: 1cm; }
-        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+        @page { size: A4; margin: 0.5cm; }
+        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; background: #fff !important; }
+        .page { box-shadow: none !important; border-radius: 0 !important; margin: 0 !important; padding: 0 !important; }
         .no-print { display: none !important; }
-        .card, .bucket-green, .bucket-yellow, .bucket-blue, .warn-box, .info-box { break-inside: avoid; }
+        .bucket, .card, .warn-box, .info-box { break-inside: avoid; }
     }
 
-    body { font-family: 'Helvetica', sans-serif; font-size: 12px; line-height: 1.5; color: #333; background: #fff; }
-    
-    /* HEADER */
-    .header-box {
-        background: linear-gradient(135deg, #1a237e 0%, #283593 100%);
-        color: white;
-        padding: 25px;
-        border-radius: 12px;
-        margin-bottom: 25px;
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+        line-height: 1.5; color: #222;
+        /* The Purple-Teal Gradient Background */
+        background: linear-gradient(135deg, #5c6bc0 0%, #7e57c2 50%, #26a69a 100%);
+    }
+
+    .page {
+        background: #ffffff;
+        padding: 24px;
+        border-radius: 16px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.16);
+        max-width: 800px; margin: auto;
+    }
+
+    /* ---- Header (The Blue Gradient with Circles) ---- */
+    .header {
         text-align: center;
+        background: radial-gradient(circle at top left, #42a5f5, #1e3c72);
+        color: #fff;
+        padding: 20px;
+        border-radius: 14px;
+        margin-bottom: 20px;
         position: relative;
         overflow: hidden;
     }
-    .header-box::before {
-        content: ""; position: absolute; top: -20px; right: -20px;
-        width: 100px; height: 100px; background: rgba(255,255,255,0.1); border-radius: 50%;
+    /* The Faint Circles */
+    .header::before {
+        content: ""; position: absolute; width: 160px; height: 160px; border-radius: 50%;
+        background: rgba(255,255,255,0.12); top: -60px; right: -40px;
     }
-    .header-title { font-size: 24px; font-weight: bold; margin: 0; color: #fff; position: relative; z-index: 2; }
-    
-    /* CARDS */
-    .card {
-        background-color: #f8f9ff;
-        border: 1px solid #e3e6ff;
-        border-radius: 10px;
-        padding: 18px;
-        margin-bottom: 20px;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    .header::after {
+        content: ""; position: absolute; width: 120px; height: 120px; border-radius: 50%;
+        background: rgba(255,255,255,0.08); bottom: -40px; left: -20px;
     }
-    
-    /* TIMELINE */
-    .timeline-box {
-        background: #e3f2fd;
-        border-radius: 50px;
-        padding: 15px 20px;
-        text-align: center;
-        margin-bottom: 25px;
-        border: 1px solid #bbdefb;
-        display: flex;
-        justify-content: space-around;
-        align-items: center;
-    }
-    .t-item { 
-        background: white; border: 2px solid #1565c0; color: #1565c0;
-        border-radius: 12px; padding: 5px 15px; font-weight: bold; font-size: 11px;
-        min-width: 80px; text-align: center;
-    }
-    .t-line { color: #1565c0; font-weight: bold; opacity: 0.5; }
+    .header h1 { font-size: 22px; margin: 0 0 5px; position: relative; z-index: 1; }
+    .tagline { font-size: 13px; opacity: 0.95; margin: 0; position: relative; z-index: 1; }
 
-    /* BUCKETS (Colors) */
-    .bucket-green {
-        background: linear-gradient(to right, #e8f5e9, #f1f8e9);
-        border: 1px solid #c8e6c9; border-left: 5px solid #4caf50;
-        padding: 15px; margin-bottom: 15px; border-radius: 8px;
+    /* Pills Row */
+    .pill-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; position: relative; z-index: 1; }
+    .pill {
+        font-size: 11px; background: rgba(255,255,255,0.15); border-radius: 20px;
+        padding: 4px 12px; border: 1px solid rgba(255,255,255,0.3);
     }
-    .bucket-yellow {
-        background: linear-gradient(to right, #fff8e1, #fffde7);
-        border: 1px solid #ffe082; border-left: 5px solid #ffb300;
-        padding: 15px; margin-bottom: 15px; border-radius: 8px;
+
+    /* ---- Typography & Highlights ---- */
+    h2 { font-size: 18px; color: #1a237e; margin: 20px 0 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+    h3 { font-size: 15px; color: #0d47a1; margin: 15px 0 5px; font-weight: bold; }
+    p { font-size: 13px; margin-bottom: 8px; text-align: justify; }
+    ul { padding-left: 18px; margin: 5px 0 15px; }
+    li { font-size: 13px; margin-bottom: 5px; }
+    
+    /* Highlight (Green instead of Red) */
+    .highlight {
+        font-weight: 600; color: #1b5e20; background: #e8f5e9;
+        padding: 0 5px; border-radius: 4px;
     }
-    .bucket-blue {
-        background: linear-gradient(to right, #e3f2fd, #e1f5fe);
-        border: 1px solid #bbdefb; border-left: 5px solid #1e88e5;
-        padding: 15px; margin-bottom: 15px; border-radius: 8px;
+
+    /* ---- Cards & Buckets ---- */
+    .card {
+        background: #f8f9ff; border: 1px solid #e3e6ff; border-radius: 12px;
+        padding: 15px; margin-bottom: 15px;
     }
     
-    /* TEXT STYLES */
-    h2 { color: #1a237e; font-size: 16px; margin-top: 0; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
-    h3 { color: #333; font-size: 14px; margin-top: 0; font-weight: bold; }
-    ul { padding-left: 18px; margin: 5px 0; }
-    li { margin-bottom: 5px; }
-    strong { color: #000; font-weight: bold; }
+    .bucket {
+        border-radius: 12px; padding: 15px; margin: 15px 0;
+        position: relative; overflow: hidden; border: 1px solid #ddd;
+    }
+    .bucket-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .bucket-title { font-weight: 700; font-size: 14px; color: #0d47a1; display: flex; align-items: center; gap: 6px; }
+    .bucket-amount {
+        font-size: 13px; font-weight: 700; background: rgba(255,255,255,0.9);
+        border-radius: 20px; padding: 4px 12px; border: 1px solid rgba(0,0,0,0.1); color: #1b5e20;
+    }
     
-    /* BOXES */
-    .warn-box { background: #fff3e0; border-left: 4px solid #fb8c00; padding: 12px; margin-top: 20px; border-radius: 6px; }
-    .info-box { background: #e0f2f1; border-left: 4px solid #00897b; padding: 12px; margin-top: 10px; border-radius: 6px; }
-    
-    .footer-note { font-size: 9px; color: #888; margin-top: 40px; text-align: center; border-top: 1px solid #eee; padding-top: 15px; }
+    /* Specific Bucket Colors */
+    .b-green { background: linear-gradient(135deg,#e8f5e9,#f1f8e9); border-color: #c8e6c9; }
+    .b-yellow { background: linear-gradient(135deg,#fff8e1,#ffecb3); border-color: #ffe082; }
+    .b-blue { background: linear-gradient(135deg,#e8eaf6,#e3f2fd); border-color: #c5cae9; }
+
+    /* ---- Timeline (Journey Circles) ---- */
+    .timeline-wrap {
+        background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 12px;
+        padding: 15px; margin: 15px 0; text-align: center;
+    }
+    .timeline-label { font-size: 12px; font-weight: 600; color: #1a237e; margin-bottom: 10px; }
+    .timeline { display: flex; justify-content: space-around; align-items: center; position: relative; }
+    /* The Line */
+    .timeline::before {
+        content: ""; position: absolute; left: 10%; right: 10%; top: 50%; height: 3px;
+        background: linear-gradient(90deg,#4caf50,#ffb300,#3949ab); opacity: 0.5; z-index: 0;
+    }
+    .t-item {
+        position: relative; z-index: 1; width: 80px; height: 80px; border-radius: 50%;
+        background: #fff; border: 3px solid #c5cae9; display: flex; flex-direction: column;
+        align-items: center; justify-content: center; font-size: 10px; text-align: center;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .t-item span { font-weight: 700; font-size: 12px; display: block; margin-bottom: 2px; }
+
+    /* ---- Boxes ---- */
+    .warn-box { background: #fff3e0; border-left: 4px solid #fb8c00; padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 20px; }
+    .info-box { background: #e0f2f1; border-left: 4px solid #00897b; padding: 12px; border-radius: 8px; font-size: 13px; margin-top: 10px; }
+    .footer-note { font-size: 10px; color: #777; margin-top: 30px; text-align: center; border-top: 1px solid #eee; padding-top: 10px; }
 </style>
 """
-
-# --- CSS FOR UI BUTTONS ---
-st.markdown("""
-<style>
-    div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
-    div.stButton > button[kind="primary"]:hover { background-color: #45a049 !important; border-color: #45a049 !important; }
-</style>
-""", unsafe_allow_html=True)
 
 # --- AUTH & SETUP ---
 if "GEMINI_API_KEY" in st.secrets:
@@ -166,12 +186,12 @@ def main():
 
     with st.form("proposal_form"):
         c1, c2 = st.columns(2)
-        with c1: client_name = st.text_input("Client Name", placeholder="e.g. Rahul Patil")
+        with c1: client_name = st.text_input("Client Name", placeholder="e.g. Ashwin Charmode")
         with c2: selected_template = st.selectbox("Select Proposal Type", df_templates['Template_Name'].tolist())
 
         c_note, c_prop = st.columns(2)
-        with c_note: meeting_notes = st.text_area("Client Background (Income, Goals, Timelines)", height=200, placeholder="E.g., Needs money for wedding in 2 years...")
-        with c_prop: proposal_context = st.text_area("Specific Details / Bucket Amounts", height=200, placeholder="E.g., 10k Comfort, 15k Dream, 25k Wealth...")
+        with c_note: meeting_notes = st.text_area("Client Background (Income, Goals, Timelines)", height=200)
+        with c_prop: proposal_context = st.text_area("Specific Details / Bucket Amounts", height=200, placeholder="E.g., 25k Safety (Liquid), 15k Dream (Hybrid)...")
 
         submit = st.form_submit_button("✨ Generate Proposal", type="primary")
 
@@ -200,10 +220,15 @@ def main():
                     {temp_data['HTML_Output_Instructions']}
                     
                     *STRICT HTML RULES:*
-                    - Generate content ONLY inside the body.
-                    - Do NOT use <html>, <head>, <style> tags.
-                    - Use the provided CSS classes (bucket-green, timeline-box, etc.).
-
+                    - ONLY generate content inside the body.
+                    - Do NOT use <html>, <head> or <style>.
+                    - STRICTLY USE these CSS classes:
+                      - Header: <div class="header"> with <div class="pill-row">
+                      - Highlights: <span class="highlight">
+                      - Timeline: <div class="timeline-wrap"> with <div class="t-item">
+                      - Buckets: <div class="bucket b-green">, <div class="bucket b-yellow">, <div class="bucket b-blue">
+                      - Bucket Amounts: <div class="bucket-amount">
+                    
                     ### OUTPUT 2: WHATSAPP
                     {temp_data['WhatsApp_Output_Instructions']}
 
@@ -221,27 +246,22 @@ def main():
 
                     html_body = html_body.replace("```html", "").replace("```", "").strip()
                     
-                    # Store in Session
                     st.session_state['prop_html_body'] = html_body
                     st.session_state['prop_wa'] = wa_part.strip()
                     st.session_state['client_name'] = client_name 
 
-                except Exception as e: st.error(f"Error: {e}")
+                    # Save to Sheet
+                    save_data = {
+                        "client_name": client_name,
+                        "template_type": selected_template,
+                        "meeting_notes": meeting_notes,
+                        "proposal_details": proposal_context,
+                        "html_output": html_body,
+                        "whatsapp_output": wa_part.strip()
+                    }
+                    log_proposal_to_sheet(save_data)
 
-            # SAVE TO SHEET AUTOMATICALLY
-            with st.spinner("Saving to database..."):
-                save_data = {
-                    "client_name": client_name,
-                    "template_type": selected_template,
-                    "meeting_notes": meeting_notes,
-                    "proposal_details": proposal_context,
-                    "html_output": html_body,
-                    "whatsapp_output": wa_part.strip()
-                }
-                if log_proposal_to_sheet(save_data):
-                    st.success("✅ Proposal Generated & Saved!")
-                else:
-                    st.warning("⚠️ Proposal generated but failed to save to Google Sheet.")
+                except Exception as e: st.error(f"Error: {e}")
 
     if 'prop_html_body' in st.session_state:
         st.divider()
@@ -249,11 +269,11 @@ def main():
         tab_html, tab_wa = st.tabs(["📄 Document Preview", "📱 WhatsApp"])
         
         with tab_html:
+            # We inject the MASTER_CSS here so the browser renders it perfectly
             preview_html = f"""
             {MASTER_CSS}
-            <div style="max-width:800px; margin:auto; background:white; padding:40px; border:1px solid #ddd; box-shadow:0 0 10px rgba(0,0,0,0.1);">
+            <div class="page">
                 {st.session_state['prop_html_body']}
-                <div class="footer-note">Disclaimer: Investments are subject to market risk. Read all scheme related documents carefully.</div>
             </div>
             <div style="text-align:center; margin-top:20px;" class="no-print">
                 <button onclick="window.print()" style="background:#4CAF50; color:white; border:none; padding:12px 25px; font-size:16px; border-radius:50px; cursor:pointer; font-weight:bold;">🖨️ Print / Save PDF</button>
