@@ -10,7 +10,13 @@ MEETING_SHEET_ID = "113g598FEs7DxZYlBVAP1iHYqrkAUj49Ra6U95UA9PEE"
 # --- CSS FOR GREEN BUTTON ---
 st.markdown("""
 <style>
+    /* Force Green Color for Primary Button */
     div.stButton > button[kind="primary"] {
+        background-color: #4CAF50 !important;
+        border: 1px solid #4CAF50 !important;
+        color: white !important;
+    }
+    div.stButton > button[kind="primary"]:focus {
         background-color: #4CAF50 !important;
         border-color: #4CAF50 !important;
         color: white !important;
@@ -18,6 +24,7 @@ st.markdown("""
     div.stButton > button[kind="primary"]:hover {
         background-color: #45a049 !important;
         border-color: #45a049 !important;
+        color: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -75,8 +82,8 @@ def log_meeting_to_sheet(data_dict):
     try:
         sheet = client.open_by_key(MEETING_SHEET_ID)
         ws = sheet.get_worksheet(0)
+        
         # Headers: Client Name | RM Name | Meeting Date | Location | Input Text | CRM Response | Client Version
-        # Note: We are saving the core fields to match your existing sheet structure
         ws.append_row([
             data_dict.get('client_name', ''),
             data_dict.get('rm_name', ''),
@@ -88,7 +95,9 @@ def log_meeting_to_sheet(data_dict):
         ])
         return True
     except Exception as e:
+        # Detailed error message to help debug
         st.error(f"❌ Sheet Save Error: {e}")
+        st.info("💡 Tip: Ensure the Google Sheet is shared with the Service Account email address found in your secrets.toml file.")
         return False
 
 # --- 3. UI LAYOUT ---
@@ -105,46 +114,42 @@ with st.form("notes_form"):
     col1, col2 = st.columns(2)
     with col1:
         client_name = st.text_input("Client / Lead Name", placeholder="e.g. Renuka Ma'am")
-        # UPDATED: Date format
         meeting_date = st.date_input("Meeting Date", value=date.today(), format="DD/MM/YYYY")
-        # UPDATED: Added Google Meet
         location = st.selectbox("Location", ["Jalgaon Office", "Nashik Office", "Client Visit", "Google Meet", "Call", "WhatsApp"])
     
     with col2:
         rm_name = st.text_input("RM Name", placeholder="e.g. Hitesh")
-        # NEW: Meeting Done By
         meeting_done_by = st.selectbox("Meeting Done by", ["Hitesh sir", "Anuya mam", "RM Self"])
-        # NEW: WhatsApp Formatting
         whatsapp_format = st.radio("WhatsApp Formatting?", ["Yes", "No"], horizontal=True)
 
     raw_notes = st.text_area("Meeting Summary (Raw Notes)", height=300, 
                             placeholder="Type raw notes here...")
 
-    # BUTTON IS NOW GREEN VIA CSS
-    submitted = st.form_submit_button("✨ Generate Professional Notes", type="primary")
+    # BUTTON IS GREEN (Defined in CSS above)
+    submitted = st.form_submit_button("✨ Generate & Save Notes", type="primary")
 
-# --- 4. GENERATION LOGIC ---
+# --- 4. GENERATION & AUTO-SAVE LOGIC ---
 if submitted:
     if not API_KEY:
         st.error("🚨 API Key is missing.")
     elif not raw_notes or not client_name:
         st.warning("Please enter at least the Client Name and Meeting Notes.")
     else:
-        with st.spinner("Drafting professional notes..."):
+        with st.spinner("Drafting notes..."):
             try:
                 model = genai.GenerativeModel("gemini-2.5-flash")
                 
-                # LOGIC FOR PERSPECTIVE
+                # PERSPECTIVE LOGIC
                 perspective_instruction = ""
                 if meeting_done_by == "RM Self":
                     perspective_instruction = "The meeting was done by the RM. Use 'I suggest', 'I recommend' in the Client Version."
                 else:
-                    perspective_instruction = f"The meeting was done by {meeting_done_by}. The note is assigned to the RM. Use 'We suggest', 'We recommend' in the Client Version to represent the firm."
+                    perspective_instruction = f"The meeting was done by {meeting_done_by}. The note is assigned to the RM. Use 'We suggest', 'We recommend' in the Client Version."
 
-                # LOGIC FOR FORMATTING
+                # FORMATTING LOGIC
                 fmt_instruction = ""
                 if whatsapp_format == "Yes":
-                    fmt_instruction = "Use bold, italics, and 2-3 relevant emojis to make it engaging."
+                    fmt_instruction = "Use bold (*text*), italics (_text_), and emojis."
                 else:
                     fmt_instruction = "STRICTLY PLAIN TEXT. No bold, no italics, no emojis."
 
@@ -168,11 +173,11 @@ if submitted:
                 1. CRM VERSION (Internal): 
                    - Plain text, numbered lists.
                    - NO markdown formatting.
-                   - Optimize for BREVITY but CLARITY (Short, punchy sentences).
+                   - Optimize for BREVITY but CLARITY.
                 
                 2. CLIENT VERSION (External): 
                    - Tone: Professional, polite, action-oriented.
-                   - Language: Friendly Indian English (Simple words, avoid complicated vocabulary).
+                   - Language: Friendly Indian English.
                    - Formatting: {fmt_instruction}
                 
                 ### OUTPUT FORMAT
@@ -189,44 +194,45 @@ if submitted:
                     crm_part = response.text
                     client_part = "Could not auto-separate."
 
-                # Save to session state
+                # Update Session State
                 st.session_state.generated_crm = crm_part.strip()
                 st.session_state.generated_client = client_part.strip()
                 
             except Exception as e:
-                st.error(f"An error occurred: {e}")
+                st.error(f"Generation Error: {e}")
 
-# --- 5. DISPLAY & SAVE LOGIC ---
-if st.session_state.generated_crm:
-    st.success("Notes Generated Successfully!")
-    
-    tab1, tab2 = st.tabs(["📂 CRM Version", "📱 Client Version"])
-    
-    with tab1:
-        st.text_area("CRM Output", value=st.session_state.generated_crm, height=400, key="crm_display")
-    with tab2:
-        st.text_area("Client Output", value=st.session_state.generated_client, height=400, key="client_display")
-
-    st.divider()
-    
-    # SAVE BUTTON (GREEN)
-    if st.button("💾 Save to Google Sheet", type="primary"):
-        # We append the 'Meeting Done By' info to RM Name for the sheet record to keep context
-        # without breaking the fixed sheet columns.
-        final_rm_entry = f"{rm_name} (By: {meeting_done_by})"
-        
-        payload = {
-            "client_name": client_name,
-            "rm_name": final_rm_entry, 
-            "date": meeting_date,
-            "location": location,
-            "input_text": raw_notes,
-            "crm_response": st.session_state.generated_crm,
-            "client_version": st.session_state.generated_client
-        }
-        
-        with st.spinner("Saving..."):
+        # AUTO-SAVE TO SHEET
+        with st.spinner("Saving to Google Sheet..."):
+            final_rm_entry = f"{rm_name} (By: {meeting_done_by})"
+            payload = {
+                "client_name": client_name,
+                "rm_name": final_rm_entry, 
+                "date": meeting_date,
+                "location": location,
+                "input_text": raw_notes,
+                "crm_response": st.session_state.generated_crm,
+                "client_version": st.session_state.generated_client
+            }
+            
             if log_meeting_to_sheet(payload):
-                st.success(f"✅ Saved for {client_name}!")
+                st.success(f"✅ Generated & Saved Successfully for {client_name}!")
             else:
-                st.error("Failed to save.")
+                st.error("❌ Generation successful, but saving to Sheet failed.")
+
+# --- 5. DISPLAY OUTPUT ---
+if st.session_state.generated_crm:
+    st.divider()
+    st.markdown("### 📋 Generated Notes")
+    st.info("👉 Click the copy icon in the top-right corner of the text box to copy.")
+    
+    col_a, col_b = st.columns(2)
+    
+    with col_a:
+        st.subheader("📂 CRM Version")
+        # st.code provides a built-in COPY button!
+        st.code(st.session_state.generated_crm, language=None)
+        
+    with col_b:
+        st.subheader("📱 Client Version")
+        # st.code provides a built-in COPY button!
+        st.code(st.session_state.generated_client, language="markdown")
