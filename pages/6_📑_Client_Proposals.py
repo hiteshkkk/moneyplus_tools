@@ -9,7 +9,7 @@ import datetime
 # --- CONFIGURATION ---
 SHEET_ID = "182JF4alQGimymohEsq9IS3x3PLNnPPqHaH0AMJIxBGU"
 
-# --- MASTER STYLING (THE PRO DESIGN) ---
+# --- MASTER STYLING (PRO DESIGN) ---
 MASTER_CSS = """
 <style>
     /* ---- Base & Print Settings ---- */
@@ -24,7 +24,6 @@ MASTER_CSS = """
     body {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
         line-height: 1.5; color: #222;
-        /* The Purple-Teal Gradient Background */
         background: linear-gradient(135deg, #5c6bc0 0%, #7e57c2 50%, #26a69a 100%);
     }
 
@@ -36,7 +35,7 @@ MASTER_CSS = """
         max-width: 800px; margin: auto;
     }
 
-    /* ---- Header (The Blue Gradient with Circles) ---- */
+    /* ---- Header ---- */
     .header {
         text-align: center;
         background: radial-gradient(circle at top left, #42a5f5, #1e3c72);
@@ -47,7 +46,6 @@ MASTER_CSS = """
         position: relative;
         overflow: hidden;
     }
-    /* The Faint Circles */
     .header::before {
         content: ""; position: absolute; width: 160px; height: 160px; border-radius: 50%;
         background: rgba(255,255,255,0.12); top: -60px; right: -40px;
@@ -59,7 +57,7 @@ MASTER_CSS = """
     .header h1 { font-size: 22px; margin: 0 0 5px; position: relative; z-index: 1; }
     .tagline { font-size: 13px; opacity: 0.95; margin: 0; position: relative; z-index: 1; }
 
-    /* Pills Row */
+    /* Pill Row */
     .pill-row { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin-top: 10px; position: relative; z-index: 1; }
     .pill {
         font-size: 11px; background: rgba(255,255,255,0.15); border-radius: 20px;
@@ -73,7 +71,6 @@ MASTER_CSS = """
     ul { padding-left: 18px; margin: 5px 0 15px; }
     li { font-size: 13px; margin-bottom: 5px; }
     
-    /* Highlight (Green instead of Red) */
     .highlight {
         font-weight: 600; color: #1b5e20; background: #e8f5e9;
         padding: 0 5px; border-radius: 4px;
@@ -96,19 +93,17 @@ MASTER_CSS = """
         border-radius: 20px; padding: 4px 12px; border: 1px solid rgba(0,0,0,0.1); color: #1b5e20;
     }
     
-    /* Specific Bucket Colors */
     .b-green { background: linear-gradient(135deg,#e8f5e9,#f1f8e9); border-color: #c8e6c9; }
     .b-yellow { background: linear-gradient(135deg,#fff8e1,#ffecb3); border-color: #ffe082; }
     .b-blue { background: linear-gradient(135deg,#e8eaf6,#e3f2fd); border-color: #c5cae9; }
 
-    /* ---- Timeline (Journey Circles) ---- */
+    /* ---- Timeline ---- */
     .timeline-wrap {
         background: #e3f2fd; border: 1px solid #bbdefb; border-radius: 12px;
         padding: 15px; margin: 15px 0; text-align: center;
     }
     .timeline-label { font-size: 12px; font-weight: 600; color: #1a237e; margin-bottom: 10px; }
     .timeline { display: flex; justify-content: space-around; align-items: center; position: relative; }
-    /* The Line */
     .timeline::before {
         content: ""; position: absolute; left: 10%; right: 10%; top: 50%; height: 3px;
         background: linear-gradient(90deg,#4caf50,#ffb300,#3949ab); opacity: 0.5; z-index: 0;
@@ -186,7 +181,7 @@ def main():
 
     with st.form("proposal_form"):
         c1, c2 = st.columns(2)
-        with c1: client_name = st.text_input("Client Name", placeholder="e.g. Ashwin Charmode")
+        with c1: client_name = st.text_input("Client Name", placeholder="e.g. Rahul Patil")
         with c2: selected_template = st.selectbox("Select Proposal Type", df_templates['Template_Name'].tolist())
 
         c_note, c_prop = st.columns(2)
@@ -250,7 +245,6 @@ def main():
                     st.session_state['prop_wa'] = wa_part.strip()
                     st.session_state['client_name'] = client_name 
 
-                    # Save to Sheet
                     save_data = {
                         "client_name": client_name,
                         "template_type": selected_template,
@@ -269,7 +263,6 @@ def main():
         tab_html, tab_wa = st.tabs(["📄 Document Preview", "📱 WhatsApp"])
         
         with tab_html:
-            # We inject the MASTER_CSS here so the browser renders it perfectly
             preview_html = f"""
             {MASTER_CSS}
             <div class="page">
