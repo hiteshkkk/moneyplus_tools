@@ -188,7 +188,7 @@ if submitted:
 
                    - Tone: Professional, polite, action-oriented—focus only on recapping what was discussed, without adding new advice or suggestions.
 
-                   - Language: Very simple, friendly Indian English (e.g., use warm phrases like "Hope you are fine!" or "Thank you so much", add "Ji" for respect, avoid complex words).
+                   - Language: Very simple, friendly Indian English (e.g., use warm phrases like "Hope you are fine!" or "Thank you so much", avoid complex words).
 
                    - Formatting: {fmt_instruction}
 
