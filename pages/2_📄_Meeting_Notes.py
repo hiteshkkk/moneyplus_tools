@@ -171,14 +171,37 @@ if submitted:
                 Generate exactly two versions separated by "|||SEPARATOR|||".
                 
                 1. CRM VERSION (Internal): 
-                   - Plain text, numbered lists.
-                   - NO markdown formatting.
-                   - Optimize for BREVITY but CLARITY.
+
+                   - Plain text only, using short numbered lists for key points and actions.
+
+                   - NO markdown, bold, italics, emojis, or extra formatting.
+
+                   - Optimize for extreme BREVITY (under 200 words total) but full CLARITY—focus only on factual recap of discussed points (e.g., investment strategy, profile, contributions, expenses, insurance, loan, goals) without any advice, opinions, or added details.
+
+                   - Structure: 
+                     - Start with header: "CRM Notes - {client_name} - {meeting_date} - {location}".
+                     - "Key Discussion Points:" followed by a short numbered list (3-6 items max, one sentence each).
+                     - "Action Items:" followed by a numbered list splitting client actions and team actions (e.g., "Client: 1. Share portfolio details. Team: 1. Provide fund options.").
+                     - End abruptly—no closing or fluff.
                 
                 2. CLIENT VERSION (External): 
-                   - Tone: Professional, polite, action-oriented.
-                   - Language: Friendly Indian English.
+
+                   - Tone: Professional, polite, action-oriented—focus only on recapping what was discussed, without adding new advice or suggestions.
+
+                   - Language: Very simple, friendly Indian English (e.g., use warm phrases like "Hope you are fine!" or "Thank you so much", add "Ji" for respect, avoid complex words).
+
                    - Formatting: {fmt_instruction}
+
+                   - Structure: 
+                     - Start with a subject header like "Quick Notes from Your Moneyplus Meeting with {rm_name} Ji - {client_name} 😊".
+                     - Greeting: "Dear [first name from {client_name}] Ji,".
+                     - Thank the client and mention the meeting date/location briefly.
+                     - "Key Points from Our Chat:" section with a bulleted list summarizing only the main topics discussed (e.g., investment strategy, client profile, monthly contributions, expenses, health insurance, loan, long-term goals—keep it factual and brief).
+                     - "Actions Expected:" section with bullets or numbers listing actions noted for the client and team (e.g., sharing details, confirmations, providing guidance).
+                     - Add a polite request: "If any point is missing or not correct, please let us know right away!".
+                     - Close with "Best wishes, {rm_name}".
+
+                   - Keep the entire version very short (under 250 words) for easy reading.
                 
                 ### OUTPUT FORMAT
                 CRM VERSION TEXT...
