@@ -211,7 +211,7 @@ def main():
                     |||SEPARATOR|||
                     """
 
-                    model = genai.GenerativeModel("gemini-2.5-flash-exp")
+                    model = genai.GenerativeModel("gemini-2.5-flash")
                     response = model.generate_content(full_prompt)
                     
                     if "|||SEPARATOR|||" in response.text:
