@@ -140,13 +140,31 @@ def load_config_data():
     if not client: return None, None
     try:
         sheet = client.open_by_key(SHEET_ID)
+        
+        # 1. System Prompt (Robust Read)
         ws_sys = sheet.worksheet("System_Prompts")
         sys_val = ws_sys.acell('A2').value 
+        
+        # 2. Templates (Robust Read using get_all_values instead of records)
         ws_temp = sheet.worksheet("Template_Master")
-        df_templates = pd.DataFrame(ws_temp.get_all_records())
+        raw_data = ws_temp.get_all_values()
+        
+        # Convert to DataFrame
+        # We assume Row 1 is headers. We take only the first 4 columns to avoid empty trailing columns.
+        headers = raw_data[0]
+        rows = raw_data[1:]
+        
+        df_templates = pd.DataFrame(rows, columns=headers)
+        
+        # Filter out rows where Template_Name is empty
+        if 'Template_Name' in df_templates.columns:
+            df_templates = df_templates[df_templates['Template_Name'] != ""]
+            
         return sys_val, df_templates
+        
     except Exception as e:
-        st.error(f"Sheet Load Error: {e}"); return None, None
+        st.error(f"Sheet Load Error: {e}")
+        return None, None
 
 def log_proposal_to_sheet(data_dict):
     client = get_gspread_client()
