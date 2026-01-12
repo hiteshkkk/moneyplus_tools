@@ -15,7 +15,7 @@ ADMIN_PASSWORD = "admin" # 🔒 Change this
 # --- 2. CSS STYLES (UI FIXES) ---
 ST_STYLE = """
 <style>
-    /* 1. Force Light Mode Backgrounds */
+    /* 1. Force Light Mode Backgrounds (Main Page & Sidebar) */
     [data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
     [data-testid="stHeader"] { background-color: #ffffff !important; }
     [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
@@ -36,7 +36,22 @@ ST_STYLE = """
     /* Placeholder Text */
     ::placeholder { color: #6b7280 !important; opacity: 1 !important; }
     
-    /* 5. FIX: Buttons */
+    /* 5. FIX: Dropdown Popups (The Menu List) - CRITICAL FIX */
+    div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"] {
+        background-color: #ffffff !important;
+        border: 1px solid #e5e7eb !important;
+    }
+    li[data-baseweb="option"], div[data-baseweb="option"] {
+        color: #1f2937 !important; /* Force Black Text for Options */
+        background-color: #ffffff !important;
+    }
+    /* Fix Hover/Selected State in Dropdown */
+    li[data-baseweb="option"]:hover, li[data-baseweb="option"][aria-selected="true"] {
+        background-color: #f0fdf4 !important; /* Light Green Hover */
+        color: #166534 !important;
+    }
+    
+    /* 6. FIX: Buttons */
     /* Primary Buttons (Green - Generate) */
     div.stButton > button[kind="primary"] { 
         background-color: #4CAF50 !important; 
@@ -133,7 +148,6 @@ def load_master_data():
 def generate_secure_id(rm_name, row_count, p_type):
     initials = "".join([x[0].upper() for x in rm_name.split() if x])
     date_str = datetime.datetime.now().strftime("%Y%m%d")
-    # Random 3-digit number logic you requested
     random_no = str(random.randint(100, 999))
     type_suffix = "F" if p_type == "Fresh" else "P"
     return f"{initials}{date_str}{random_no}{type_suffix}"
@@ -369,103 +383,6 @@ def render_quote_viewer(quote_id):
     </html>
     """
     components.html(full_html, height=1200, scrolling=True)
-
-# --- 5. ADMIN / GENERATOR ---
-def render_admin_login():
-    st.title("🔒 Admin Access")
-    pwd = st.text_input("Enter Password", type="password")
-    if st.button("Login"):
-        if pwd == ADMIN_PASSWORD:
-            st.session_state['authenticated'] = True
-            st.rerun()
-        else: st.error("Invalid Password")
-
-def render_generator():
-    if not st.session_state.get('authenticated', False):
-        render_admin_login()
-        return
-
-    st.markdown(ST_STYLE, unsafe_allow_html=True)
-    st.title("📝 Quote Generator")
-    
-    # EDIT MODE
-    c_load1, c_load2 = st.columns([3, 1])
-    edit_id = c_load1.text_input("Load Quote to Edit (ID)", placeholder="Paste Quote ID here...")
-    
-    if c_load2.button("Load Data"):
-        if edit_id:
-            data = fetch_quote_data(edit_id)
-            if data:
-                st.session_state['edit_data'] = data
-                st.success(f"Loaded: {data['client']}")
-                st.rerun()
-            else: st.warning("ID Not Found")
-
-    loaded = st.session_state.get('edit_data', None)
-
-    with st.spinner("Syncing..."): df_drop, df_plans, _, _, _, _ = load_master_data()
-    
-    if df_plans is not None:
-        c1, c2, c3, c4 = st.columns(4)
-        
-        # Helper to get existing values
-        def get_val(key, default): return loaded[key] if loaded else default
-        
-        rm_opts = [x for x in df_drop['RM Names'].unique() if x] if df_drop is not None else []
-        def_rm_idx = 0
-        if loaded and loaded['rm'] in rm_opts: def_rm_idx = rm_opts.index(loaded['rm'])
-        
-        rm = c1.selectbox("RM Name", rm_opts, index=def_rm_idx)
-        client = c2.text_input("Client Name", value=get_val('client', ''))
-        city = c3.text_input("City", value=get_val('city', ''))
-        
-        type_opts = ["Fresh", "Port"]
-        def_type_idx = 0
-        if loaded and loaded['type'] in type_opts: def_type_idx = type_opts.index(loaded['type'])
-        p_type = c4.selectbox("Policy Type", type_opts, index=def_type_idx)
-        
-        crm = st.text_input("CRM Link", value=get_val('crm_link', ''))
-        
-        st.divider()
-        
-        # Plan Selection
-        all_plan_names = df_plans.columns[2:].tolist()
-        def_plans = []
-        if loaded:
-            def_plans = [p['Plan Name'] for p in loaded['plans'] if p['Plan Name'] in all_plan_names]
-            
-        sel_plans = st.multiselect("Select Plans", all_plan_names, default=def_plans)
-        
-        if sel_plans:
-            user_inputs = {}
-            for p in sel_plans[:5]:
-                exist_p, exist_n = "", ""
-                if loaded:
-                    for lp in loaded['plans']:
-                        if lp['Plan Name'] == p: exist_p, exist_n = lp['Premium'], lp['Notes']
-                
-                st.markdown(f"**{p}**")
-                c_p, c_n = st.columns([1,2])
-                user_inputs[f"{p}_p"] = c_p.text_area("Premium", value=exist_p, height=70, key=f"p_{p}")
-                user_inputs[f"{p}_n"] = c_n.text_area("Notes", value=exist_n, height=70, key=f"n_{p}")
-            
-            if st.button("🚀 Generate Quote Link", type="primary"):
-                if not client: st.error("Client Name Required"); return
-                
-                ws, cnt, _ = get_sheet_and_rows()
-                qid = generate_secure_id(rm, cnt, p_type) # Always new ID
-                
-                final_plans = [{"Plan Name":p, "Premium":user_inputs[f"{p}_p"], "Notes":user_inputs[f"{p}_n"]} for p in sel_plans[:5]]
-                q_data = {
-                    "quote_id":qid, "date":datetime.date.today().strftime("%d-%b-%Y"), 
-                    "rm":rm, "client":client, "city":city, "type":p_type, "crm_link":crm, "plans":final_plans
-                }
-                
-                if log_quote_to_sheet(ws, q_data):
-                    st.success(f"✅ Created Quote: {qid}")
-                    link = f"{APP_BASE_URL}?quote_id={qid}"
-                    st.code(link)
-                    st.markdown(f'<a href="{link}" target="_blank" style="background:#4CAF50;color:white;padding:12px 25px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Open Quote Viewer</a>', unsafe_allow_html=True)
 
 # --- 6. MAIN ROUTER ---
 def main():
