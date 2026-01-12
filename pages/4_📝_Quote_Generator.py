@@ -8,64 +8,89 @@ import string
 import streamlit.components.v1 as components
 
 # --- 1. CONFIGURATION ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 REPLACE THIS WITH YOUR SHEET URL
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" # 🚨 REPLACE THIS WITH YOUR SHEET URL
 APP_BASE_URL = "https://moneyplustools.streamlit.app/Quote_Generator" 
 ADMIN_PASSWORD = "admin" # 🔒 Change this
 
 # --- 2. CSS STYLES (UI FIXES) ---
 ST_STYLE = """
 <style>
-    /* 1. Force Light Mode Backgrounds */
-    [data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
-    [data-testid="stHeader"] { background-color: #ffffff !important; }
-    [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
+    /* 1. GLOBAL LIGHT MODE FORCE */
+    [data-testid="stAppViewContainer"], [data-testid="stHeader"], [data-testid="stSidebar"] {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+    }
     
-    /* 2. Force Text Colors (Main Area) */
-    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, div { color: #1f2937 !important; }
+    /* 2. TEXT VISIBILITY FORCE */
+    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, div, span {
+        color: #1f2937 !important;
+    }
     
-    /* 3. FIX: Sidebar Menu Text */
-    [data-testid="stSidebar"] * { color: #1f2937 !important; }
-    [data-testid="stSidebarNav"] span { color: #1f2937 !important; }
-    
-    /* 4. FIX: Input Fields */
-    .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+    /* 3. INPUT FIELDS (Closed State) */
+    .stTextInput input, .stTextArea textarea {
         color: #000000 !important;
         background-color: #ffffff !important;
-        border-color: #e5e7eb !important;
+        border: 1px solid #d1d5db !important;
     }
-    ::placeholder { color: #6b7280 !important; opacity: 1 !important; }
     
-    /* 5. FIX: Dropdown Popups - CRITICAL FIX */
+    /* 4. DROPDOWN / MULTISELECT FIXES (The "Nuclear" Option) */
+    
+    /* The Box itself */
+    div[data-baseweb="select"] > div {
+        background-color: #ffffff !important;
+        border-color: #d1d5db !important;
+        color: #000000 !important;
+    }
+    
+    /* Text inside the box */
+    div[data-baseweb="select"] span {
+        color: #000000 !important;
+    }
+    
+    /* The Popup Menu Container */
     div[data-baseweb="popover"], div[data-baseweb="menu"], ul[data-baseweb="menu"] {
         background-color: #ffffff !important;
-        border: 1px solid #e5e7eb !important;
-    }
-    li[data-baseweb="option"], div[data-baseweb="option"] {
-        color: #1f2937 !important; 
-        background-color: #ffffff !important;
-    }
-    li[data-baseweb="option"]:hover, li[data-baseweb="option"][aria-selected="true"] {
-        background-color: #f0fdf4 !important;
-        color: #166534 !important;
+        border: 1px solid #d1d5db !important;
     }
     
-    /* 6. FIX: Buttons */
+    /* The Options in the list */
+    li[data-baseweb="option"], div[data-baseweb="option"] {
+        background-color: #ffffff !important;
+        color: #000000 !important; 
+    }
+    
+    /* Hover / Selected State */
+    li[data-baseweb="option"]:hover, 
+    li[data-baseweb="option"][aria-selected="true"] {
+        background-color: #e8f5e9 !important; /* Light Green */
+        color: #1b5e20 !important; /* Dark Green */
+        font-weight: bold !important;
+    }
+    
+    /* Multiselect Tags */
+    .stMultiSelect span[data-baseweb="tag"] {
+        background-color: #e8f5e9 !important;
+        border: 1px solid #4CAF50 !important;
+    }
+    .stMultiSelect span[data-baseweb="tag"] span {
+        color: #1b5e20 !important;
+    }
+    
+    /* 5. BUTTONS */
     div.stButton > button[kind="primary"] { 
-        background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; 
+        background-color: #4CAF50 !important; 
+        border-color: #4CAF50 !important; 
+        color: white !important; 
     }
     div.stButton > button[kind="primary"]:hover { 
-        background-color: #45a049 !important; border-color: #45a049 !important; 
+        background-color: #45a049 !important; 
+        border-color: #45a049 !important; 
     }
     div.stButton > button:not([kind="primary"]) {
-        background-color: #f0f2f6 !important; color: #1f2937 !important; border: 1px solid #d1d5db !important;
+        background-color: #f3f4f6 !important;
+        color: #1f2937 !important;
+        border: 1px solid #d1d5db !important;
     }
-    div.stButton > button:not([kind="primary"]):hover {
-        background-color: #e5e7eb !important; border-color: #9ca3af !important; color: #000000 !important;
-    }
-
-    /* Green Tags for Multiselect */
-    .stMultiSelect span[data-baseweb="tag"] { background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important; }
-    .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
 </style>
 """
 
