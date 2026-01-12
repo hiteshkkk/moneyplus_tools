@@ -12,33 +12,57 @@ SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztp
 APP_BASE_URL = "https://moneyplustools.streamlit.app/Quote_Generator" 
 ADMIN_PASSWORD = "admin" # 🔒 Change this
 
-# --- 2. CSS STYLES (GENERATOR) ---
-# This CSS now forces a clean "Light Mode" look even if your device is in Dark Mode
+# --- 2. CSS STYLES (UI FIXES) ---
 ST_STYLE = """
 <style>
-    /* Force Light Mode Background & Text */
+    /* 1. Force Light Mode Backgrounds */
     [data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
     [data-testid="stHeader"] { background-color: #ffffff !important; }
     [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
     
-    /* Text Colors */
-    h1, h2, h3, p, label, .stMarkdown { color: #1f2937 !important; }
+    /* 2. Force Text Colors (Main Area) */
+    h1, h2, h3, h4, h5, h6, p, label, .stMarkdown, div { color: #1f2937 !important; }
     
-    /* Input Fields Fix */
+    /* 3. FIX: Sidebar Menu Text */
+    [data-testid="stSidebar"] * { color: #1f2937 !important; }
+    [data-testid="stSidebarNav"] span { color: #1f2937 !important; }
+    
+    /* 4. FIX: Input Fields (Force White BG, Black Text) */
     .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
         color: #000000 !important;
         background-color: #ffffff !important;
         border-color: #e5e7eb !important;
     }
-    .stTextInput label, .stSelectbox label, .stTextArea label {
-        color: #374151 !important;
+    /* Placeholder Text */
+    ::placeholder { color: #6b7280 !important; opacity: 1 !important; }
+    
+    /* 5. FIX: Buttons */
+    /* Primary Buttons (Green - Generate) */
+    div.stButton > button[kind="primary"] { 
+        background-color: #4CAF50 !important; 
+        border-color: #4CAF50 !important; 
+        color: white !important; 
+    }
+    div.stButton > button[kind="primary"]:hover { 
+        background-color: #45a049 !important; 
+        border-color: #45a049 !important; 
+    }
+    
+    /* Secondary Buttons (Grey - Load Data) */
+    div.stButton > button:not([kind="primary"]) {
+        background-color: #f0f2f6 !important;
+        color: #1f2937 !important;
+        border: 1px solid #d1d5db !important;
+    }
+    div.stButton > button:not([kind="primary"]):hover {
+        background-color: #e5e7eb !important;
+        border-color: #9ca3af !important;
+        color: #000000 !important;
     }
 
-    /* Green Tags & Buttons (MoneyPlus Brand) */
+    /* Green Tags for Multiselect */
     .stMultiSelect span[data-baseweb="tag"] { background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important; }
     .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
-    div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
-    div.stButton > button[kind="primary"]:hover { background-color: #45a049 !important; border-color: #45a049 !important; }
 </style>
 """
 
@@ -160,11 +184,19 @@ def fetch_quote_data(quote_id):
 
 # --- 4. VIEWER ---
 def render_quote_viewer(quote_id):
-    # Hide standard UI elements via CSS injection in components.html
-    # We do NOT use st.markdown CSS here because it affects the global app.
-    # The viewer logic remains self-contained in the HTML string below.
-    
     quote_data = fetch_quote_data(quote_id)
+    page_title = f"Health Proposal for {quote_data['client']}" if quote_data else "MoneyPlus Quote"
+    
+    st.set_page_config(page_title=page_title, page_icon="🏥", layout="wide", initial_sidebar_state="collapsed")
+    
+    st.markdown("""
+        <style>
+            [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
+            .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
+            body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1f2937; margin: 0; }
+        </style>
+    """, unsafe_allow_html=True)
+    
     if not quote_data: st.error("Quote not found."); return
 
     _, df_plans, df_config, df_faq, df_foot, quotes_list = load_master_data()
@@ -337,112 +369,8 @@ def render_quote_viewer(quote_id):
     """
     components.html(full_html, height=1200, scrolling=True)
 
-# --- 5. ADMIN / GENERATOR ---
-def render_admin_login():
-    st.title("🔒 Admin Access")
-    pwd = st.text_input("Enter Password", type="password")
-    if st.button("Login"):
-        if pwd == ADMIN_PASSWORD:
-            st.session_state['authenticated'] = True
-            st.rerun()
-        else: st.error("Invalid Password")
-
-def render_generator():
-    if not st.session_state.get('authenticated', False):
-        render_admin_login()
-        return
-
-    st.markdown(ST_STYLE, unsafe_allow_html=True)
-    st.title("📝 Quote Generator")
-    
-    # EDIT MODE
-    c_load1, c_load2 = st.columns([3, 1])
-    edit_id = c_load1.text_input("Load Quote to Edit (ID)", placeholder="Paste Quote ID here...")
-    
-    if c_load2.button("Load Data"):
-        if edit_id:
-            data = fetch_quote_data(edit_id)
-            if data:
-                st.session_state['edit_data'] = data
-                st.success(f"Loaded: {data['client']}")
-                st.rerun()
-            else: st.warning("ID Not Found")
-
-    loaded = st.session_state.get('edit_data', None)
-
-    with st.spinner("Syncing..."): df_drop, df_plans, _, _, _, _ = load_master_data()
-    
-    if df_plans is not None:
-        c1, c2, c3, c4 = st.columns(4)
-        
-        # Helper to get existing values
-        def get_val(key, default): return loaded[key] if loaded else default
-        
-        rm_opts = [x for x in df_drop['RM Names'].unique() if x] if df_drop is not None else []
-        def_rm_idx = 0
-        if loaded and loaded['rm'] in rm_opts: def_rm_idx = rm_opts.index(loaded['rm'])
-        
-        rm = c1.selectbox("RM Name", rm_opts, index=def_rm_idx)
-        client = c2.text_input("Client Name", value=get_val('client', ''))
-        city = c3.text_input("City", value=get_val('city', ''))
-        
-        type_opts = ["Fresh", "Port"]
-        def_type_idx = 0
-        if loaded and loaded['type'] in type_opts: def_type_idx = type_opts.index(loaded['type'])
-        p_type = c4.selectbox("Policy Type", type_opts, index=def_type_idx)
-        
-        crm = st.text_input("CRM Link", value=get_val('crm_link', ''))
-        
-        st.divider()
-        
-        # Plan Selection
-        all_plan_names = df_plans.columns[2:].tolist()
-        def_plans = []
-        if loaded:
-            def_plans = [p['Plan Name'] for p in loaded['plans'] if p['Plan Name'] in all_plan_names]
-            
-        sel_plans = st.multiselect("Select Plans", all_plan_names, default=def_plans)
-        
-        if sel_plans:
-            user_inputs = {}
-            for p in sel_plans[:5]:
-                exist_p, exist_n = "", ""
-                if loaded:
-                    for lp in loaded['plans']:
-                        if lp['Plan Name'] == p: exist_p, exist_n = lp['Premium'], lp['Notes']
-                
-                st.markdown(f"**{p}**")
-                c_p, c_n = st.columns([1,2])
-                user_inputs[f"{p}_p"] = c_p.text_area("Premium", value=exist_p, height=70, key=f"p_{p}")
-                user_inputs[f"{p}_n"] = c_n.text_area("Notes", value=exist_n, height=70, key=f"n_{p}")
-            
-            if st.button("🚀 Generate Quote Link", type="primary"):
-                if not client: st.error("Client Name Required"); return
-                
-                ws, cnt, _ = get_sheet_and_rows()
-                qid = generate_secure_id(rm, cnt, p_type) # Always new ID
-                
-                final_plans = [{"Plan Name":p, "Premium":user_inputs[f"{p}_p"], "Notes":user_inputs[f"{p}_n"]} for p in sel_plans[:5]]
-                q_data = {
-                    "quote_id":qid, "date":datetime.date.today().strftime("%d-%b-%Y"), 
-                    "rm":rm, "client":client, "city":city, "type":p_type, "crm_link":crm, "plans":final_plans
-                }
-                
-                if log_quote_to_sheet(ws, q_data):
-                    st.success(f"✅ Created Quote: {qid}")
-                    link = f"{APP_BASE_URL}?quote_id={qid}"
-                    st.code(link)
-                    st.markdown(f'<a href="{link}" target="_blank" style="background:#4CAF50;color:white;padding:12px 25px;text-decoration:none;border-radius:5px;display:inline-block;font-weight:bold;">Open Quote Viewer</a>', unsafe_allow_html=True)
-
 # --- 6. MAIN ROUTER ---
 def main():
-    # SET PAGE CONFIG MUST BE THE FIRST STREAMLIT COMMAND
-    # But since render_quote_viewer needs to set a specific title/icon based on data,
-    # we handle it inside that function. For generator, we can set default here OR handle inside.
-    # Streamlit requires set_page_config to be the very first command if used.
-    # We will let render_quote_viewer handle it dynamically.
-    # For Generator, we need a default.
-    
     if "quote_id" in st.query_params:
         render_quote_viewer(st.query_params["quote_id"])
     else:
