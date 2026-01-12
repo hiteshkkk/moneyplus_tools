@@ -8,7 +8,7 @@ import string
 import streamlit.components.v1 as components
 
 # --- 1. CONFIGURATION ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" # 🚨 REPLACE THIS
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 REPLACE THIS
 APP_BASE_URL = "https://moneyplustools.streamlit.app/Quote_Generator" 
 ADMIN_PASSWORD = "admin" # 🔒 Change this
 
