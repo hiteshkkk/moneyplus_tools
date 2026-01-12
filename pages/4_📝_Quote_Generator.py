@@ -8,52 +8,33 @@ import string
 import streamlit.components.v1 as components
 
 # --- 1. CONFIGURATION ---
-SHEET_URL = "https://docs.google.com/spreadsheets/d/1ZN7x6TgIU-zCT4ffV8ec9KFxztpSCSR-p83RWwW1zXA" # 🚨 REPLACE THIS
+SHEET_URL = "https://docs.google.com/spreadsheets/d/1B7-y...YOUR_FULL_URL_HERE" # 🚨 REPLACE THIS
 APP_BASE_URL = "https://moneyplustools.streamlit.app/Quote_Generator" 
 ADMIN_PASSWORD = "admin" # 🔒 Change this
 
-# --- 2. CSS STYLES (THE NUCLEAR VERSION) ---
+# --- 2. CSS STYLES (GENERATOR) ---
+# This CSS now forces a clean "Light Mode" look even if your device is in Dark Mode
 ST_STYLE = """
 <style>
-    /* 1. HIDE STANDARD STREAMLIT UI */
-    [data-testid="stHeader"], 
-    [data-testid="stSidebar"], 
-    [data-testid="stToolbar"], 
-    .stDeployButton,            /* Hides Deploy Button */
-    [data-testid="stDecoration"], /* Hides top decoration bar */
-    footer, 
-    [data-testid="stFooter"],   /* Hides the "Made with Streamlit" footer */
-    #MainMenu {
-        display: none !important;
-        visibility: hidden !important;
-        height: 0 !important;
-    }
-
-    /* 2. SPECIFICALLY HIDE "MANAGE APP" / VIEWER BADGE (Bottom Right) */
-    [class*="viewerBadge"] {
-        display: none !important;
-        visibility: hidden !important;
-    }
-
-    /* 3. REMOVE WHITE SPACE AT TOP */
-    .block-container {
-        padding-top: 0 !important;
-        padding-bottom: 0 !important;
-        margin-top: 0 !important;
-    }
+    /* Force Light Mode Background & Text */
+    [data-testid="stAppViewContainer"] { background-color: #ffffff !important; }
+    [data-testid="stHeader"] { background-color: #ffffff !important; }
+    [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
     
-    /* 4. FORCE LIGHT BACKGROUND UNIVERSALLY */
-    .stApp {
-        background-color: #ffffff;
-        margin-top: -60px; /* Pulls content up to cover the header gap */
+    /* Text Colors */
+    h1, h2, h3, p, label, .stMarkdown { color: #1f2937 !important; }
+    
+    /* Input Fields Fix */
+    .stTextInput input, .stTextArea textarea, .stSelectbox div[data-baseweb="select"] {
+        color: #000000 !important;
+        background-color: #ffffff !important;
+        border-color: #e5e7eb !important;
+    }
+    .stTextInput label, .stSelectbox label, .stTextArea label {
+        color: #374151 !important;
     }
 
-    /* 5. HIDE 'MANAGE APP' BUTTON (Streamlit Cloud specific header) */
-    .stApp > header {
-        display: none !important;
-    }
-    
-    /* 6. YOUR CUSTOM BRANDING */
+    /* Green Tags & Buttons (MoneyPlus Brand) */
     .stMultiSelect span[data-baseweb="tag"] { background-color: #e8f5e9 !important; border: 1px solid #4CAF50 !important; }
     .stMultiSelect span[data-baseweb="tag"] span { color: #1b5e20 !important; }
     div.stButton > button[kind="primary"] { background-color: #4CAF50 !important; border-color: #4CAF50 !important; color: white !important; }
@@ -90,7 +71,6 @@ def load_master_data():
     if not client: return None, None, None, None, None, None
     try:
         sheet = client.open_by_url(SHEET_URL)
-        
         ws_drop = sheet.worksheet("Dropdown_Masters")
         r_drop = ws_drop.get_all_values()
         df_drop = pd.DataFrame(r_drop[1:], columns=r_drop[0]) if len(r_drop) > 1 else pd.DataFrame()
@@ -129,9 +109,8 @@ def load_master_data():
 def generate_secure_id(rm_name, row_count, p_type):
     initials = "".join([x[0].upper() for x in rm_name.split() if x])
     date_str = datetime.datetime.now().strftime("%Y%m%d")
-    random_no = str(random.randint(100, 999)) # Random 3-digit
+    random_no = str(random.randint(100, 999))
     type_suffix = "F" if p_type == "Fresh" else "P"
-    # Format: PJ20260106846F
     return f"{initials}{date_str}{random_no}{type_suffix}"
 
 def log_quote_to_sheet(ws, q):
@@ -181,20 +160,11 @@ def fetch_quote_data(quote_id):
 
 # --- 4. VIEWER ---
 def render_quote_viewer(quote_id):
+    # Hide standard UI elements via CSS injection in components.html
+    # We do NOT use st.markdown CSS here because it affects the global app.
+    # The viewer logic remains self-contained in the HTML string below.
+    
     quote_data = fetch_quote_data(quote_id)
-    page_title = f"Health Proposal for {quote_data['client']}" if quote_data else "MoneyPlus Quote"
-    
-    st.set_page_config(page_title=page_title, page_icon="🏥", layout="wide", initial_sidebar_state="collapsed")
-    
-    # APPLY NUCLEAR CSS IN VIEWER MODE TOO
-    st.markdown("""
-        <style>
-            [data-testid="stHeader"], [data-testid="stSidebar"], [data-testid="stToolbar"], footer, #MainMenu { display: none !important; }
-            .block-container { padding: 0 !important; margin: 0 !important; max-width: 100% !important; }
-            body { font-family: 'Inter', sans-serif; background-color: #ffffff; color: #1f2937; margin: 0; }
-        </style>
-    """, unsafe_allow_html=True)
-    
     if not quote_data: st.error("Quote not found."); return
 
     _, df_plans, df_config, df_faq, df_foot, quotes_list = load_master_data()
@@ -208,7 +178,6 @@ def render_quote_viewer(quote_id):
     whatsapp_link = f"https://wa.me/918087058000?text={whatsapp_msg.replace(' ', '%20')}"
     random_quote = random.choice(quotes_list) if quotes_list else "Health is wealth. Protect it today."
 
-    # 1. HTML GENERATION
     plans_html = ""
     active_plans_names = []
     for p in quote_data['plans']:
@@ -256,7 +225,6 @@ def render_quote_viewer(quote_id):
         for _, row in df_foot.iterrows():
             if row.get("Content"): footer_text_html += f"<p>{row['Content']}</p>"
 
-    # 4. FINAL HTML WITH GOOGLE TRANSLATE
     full_html = f"""
     <!DOCTYPE html>
     <html>
@@ -265,36 +233,28 @@ def render_quote_viewer(quote_id):
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <style>
         body {{ margin: 0; padding: 0; font-family: 'Inter', sans-serif; background: #fff; color: #1f2937; top: 0 !important; }}
-        
         #google_translate_element {{ text-align: center; margin-top: 10px; }}
-        .goog-te-gadget-simple {{ background-color: #f0fdf4 !important; border: 1px solid #4CAF50 !important; padding: 5px 10px !important; border-radius: 20px !important; font-size: 13px !important; line-height: 20px !important; display: inline-block; cursor: pointer; zoom: 1; }}
+        .goog-te-gadget-simple {{ background-color: #f0fdf4 !important; border: 1px solid #4CAF50 !important; padding: 5px 10px !important; border-radius: 20px !important; font-size: 13px !important; display: inline-block; cursor: pointer; }}
         .goog-te-gadget-simple a {{ text-decoration: none !important; color: #166534 !important; font-weight: bold !important; }}
-        .goog-te-banner-frame {{ display: none !important; }} 
-        body {{ top: 0px !important; }}
-
-        .header {{ text-align: center; padding: 20px 20px 20px; border-bottom: 1px solid #eee; }}
+        .goog-te-banner-frame {{ display: none !important; }} body {{ top: 0px !important; }}
+        .header {{ text-align: center; padding: 20px; border-bottom: 1px solid #eee; }}
         .header img {{ height: 60px; margin-bottom: 10px; }}
         .header h1 {{ margin: 0; font-size: 24px; color: #2E7D32; font-weight: 700; }}
         .container {{ max-width: 900px; margin: 0 auto; padding: 0 20px 120px; }}
-        
         .client-card {{ background: #f0f4f8; border-radius: 8px; padding: 20px; margin: 30px 0; border: 1px solid #dbeafe; display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }}
         .c-label {{ font-size: 11px; color: #64748b; text-transform: uppercase; font-weight: 700; }}
         .c-val {{ font-size: 15px; font-weight: 600; color: #0f172a; }}
-
         .plan-card {{ break-inside: avoid; page-break-inside: avoid; background: white; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); border-top: 4px solid #4CAF50; overflow: hidden; }}
         .plans-grid {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 20px; margin-bottom: 40px; }}
         .plan-header {{ padding: 15px; background: #fff; font-size: 16px; font-weight: 700; color: #14532d; border-bottom: 1px solid #f1f5f9; }}
         .plan-prem {{ padding: 15px; font-size: 20px; font-weight: 800; color: #1e3a8a; }}
         .plan-notes {{ padding: 15px; background: #fffbeb; font-size: 13px; color: #4b5563; line-height: 1.5; border-top: 1px solid #fef3c7; }}
-
         .pro-tip {{ background: #fff7ed; border-left: 4px solid #ea580c; padding: 15px; margin: 30px 0; border-radius: 4px; break-inside: avoid; }}
         .pro-title {{ color: #9a3412; font-weight: 700; font-size: 15px; margin-bottom: 5px; }}
         .pro-text {{ color: #431407; font-size: 13px; line-height: 1.5; }}
-
         .section-title {{ font-size: 18px; font-weight: 700; color: #111; margin: 40px 0 15px; border-bottom: 2px solid #4CAF50; display: inline-block; padding-bottom: 5px; page-break-after: avoid; }}
         .controls {{ margin-bottom: 15px; text-align: right; }}
         .btn-ctrl {{ font-size: 12px; cursor: pointer; color: #2E7D32; text-decoration: underline; margin-left: 15px; background: none; border: none; }}
-        
         .accordion-item {{ border: 1px solid #e2e8f0; margin-bottom: 8px; border-radius: 6px; overflow: hidden; break-inside: avoid; page-break-inside: avoid; }}
         .accordion-header {{ padding: 12px 15px; background: #f8fafc; cursor: pointer; display: flex; justify-content: space-between; align-items: center; transition: 0.2s; }}
         .accordion-header:hover {{ background: #f1f5f9; }}
@@ -310,13 +270,11 @@ def render_quote_viewer(quote_id):
         .active .accordion-header {{ background: #dcfce7; }}
         .val-good {{ color: #15803d; font-weight: 600; background: #dcfce7; padding: 2px 6px; border-radius: 4px; }}
         .val-bad {{ color: #b91c1c; font-weight: 600; background: #fee2e2; padding: 2px 6px; border-radius: 4px; }}
-
         .quote-box {{ text-align: center; margin: 40px 0; padding: 20px; background: #f0fdf4; border-radius: 8px; color: #166534; font-style: italic; font-weight: 500; border: 1px dashed #4CAF50; break-inside: avoid; }}
         .faq-item {{ margin-bottom: 15px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; break-inside: avoid; }}
         .faq-q {{ font-weight: 700; color: #1e293b; margin-bottom: 5px; }}
         .faq-a {{ font-size: 13px; color: #475569; line-height: 1.5; }}
         .static-footer {{ text-align: center; font-size: 11px; color: #94a3b8; margin-top: 40px; padding-top: 20px; border-top: 1px solid #eee; }}
-
         .sticky-footer {{ position: fixed; bottom: 0; left: 0; width: 100%; background: white; border-top: 1px solid #ccc; padding: 10px 0; display: flex; justify-content: space-around; box-shadow: 0 -2px 10px rgba(0,0,0,0.1); z-index: 100; }}
         .f-btn {{ text-decoration: none; padding: 12px 20px; border-radius: 5px; font-size: 14px; font-weight: 700; text-align: center; flex: 1; margin: 0 10px; display: flex; align-items: center; justify-content: center; }}
         .btn-print {{ background: #f1f5f9; color: #334155; }}
@@ -325,18 +283,12 @@ def render_quote_viewer(quote_id):
         @media (max-width: 600px) {{ .acc-desc {{ display: block; margin-left: 24px; margin-top: 2px; }} .sticky-footer {{ padding: 10px 5px; }} .f-btn {{ padding: 10px 5px; font-size: 12px; margin: 0 2px; }} }}
         @media print {{ .no-print, .sticky-footer, .controls, #google_translate_element {{ display: none; }} .accordion-content {{ max-height: none !important; display: block; }} }}
     </style>
-    
     <script type="text/javascript">
     function googleTranslateElementInit() {{
-      new google.translate.TranslateElement({{
-        pageLanguage: 'en', 
-        includedLanguages: 'en,hi,mr,gu,ml,ta,kn,te,bn', 
-        layout: google.translate.TranslateElement.InlineLayout.SIMPLE
-      }}, 'google_translate_element');
+      new google.translate.TranslateElement({{pageLanguage: 'en', includedLanguages: 'en,hi,mr,gu,ml,ta,kn,te,bn', layout: google.translate.TranslateElement.InlineLayout.SIMPLE}}, 'google_translate_element');
     }}
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
-
     </head>
     <body>
         <div id="google_translate_element"></div>
@@ -351,26 +303,16 @@ def render_quote_viewer(quote_id):
                 <div><div class="c-label">Quote ID</div><div class="c-val">{quote_id}</div></div>
                 <div><div class="c-label">Date</div><div class="c-val">{quote_data['date']}</div></div>
             </div>
-            
             <div class="section-title">Selected Plans</div>
             <div class="plans-grid">{plans_html}</div>
-            
-            <div class="pro-tip">
-                <div class="pro-title">🚀 Pro-tip: Beat the Premium Hike</div>
-                <div class="pro-text">Medical costs rise every year, and so do insurance premiums. But you can outsmart inflation! Opt for a multi-year plan (3 or 5 years) to freeze your premium at today’s rate and enjoy an extra discount. Same protection, significantly lower cost.</div>
-            </div>
-
+            <div class="pro-tip"><div class="pro-title">🚀 Pro-tip: Beat the Premium Hike</div><div class="pro-text">Medical costs rise every year, and so do insurance premiums. But you can outsmart inflation! Opt for a multi-year plan (3 or 5 years) to freeze your premium at today’s rate and enjoy an extra discount. Same protection, significantly lower cost.</div></div>
             <div class="section-title">Feature Comparison</div>
             <div class="controls no-print">
                 <button class="btn-ctrl" onclick="expandAll()">[+] Expand All</button>
                 <button class="btn-ctrl" onclick="collapseAll()">[-] Collapse All</button>
             </div>
             {accordion_html}
-            
-            <div class="quote-box">
-                 🧠 Food for Thought: "{random_quote}"
-            </div>
-
+            <div class="quote-box">🧠 Food for Thought: "{random_quote}"</div>
             <div class="section-title">Frequently Asked Questions</div>
             {faq_html}
             <div class="static-footer">{footer_text_html}</div>
@@ -494,9 +436,17 @@ def render_generator():
 
 # --- 6. MAIN ROUTER ---
 def main():
+    # SET PAGE CONFIG MUST BE THE FIRST STREAMLIT COMMAND
+    # But since render_quote_viewer needs to set a specific title/icon based on data,
+    # we handle it inside that function. For generator, we can set default here OR handle inside.
+    # Streamlit requires set_page_config to be the very first command if used.
+    # We will let render_quote_viewer handle it dynamically.
+    # For Generator, we need a default.
+    
     if "quote_id" in st.query_params:
         render_quote_viewer(st.query_params["quote_id"])
     else:
+        st.set_page_config(page_title="Quote Generator", page_icon="📝", layout="wide")
         render_generator()
 
 if __name__ == "__main__":
