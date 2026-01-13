@@ -1,5 +1,8 @@
+import streamlit as st
 import streamlit.components.v1 as components
-import json
+
+# --- CONFIG ---
+# (You can keep your existing config here if needed, though this method uses JS)
 
 def render(token_headers):
     st.markdown("## 🔍 KYC Status Check (Client-Side)")
@@ -83,8 +86,9 @@ def render(token_headers):
                     }} catch (error) {{
                         console.error(error);
                         let msg = error.message;
+                        // Detailed error handling for CORS
                         if (msg.includes("Failed to fetch")) {{
-                            msg = "⚠️ Browser Blocked (CORS): The NSE server blocked this request because it didn't come from their own website. <br><br><b>Solution:</b> You must use a Proxy (Option 1) or Run Locally (Option 3).";
+                            msg = "⚠️ Browser Blocked (CORS): The NSE server blocked this request because it didn't come from their own website. <br><br><b>This method will not work for this specific website.</b>";
                         }}
                         document.getElementById("status").innerHTML = `<div class="status-box error">${{msg}}</div>`;
                     }}
