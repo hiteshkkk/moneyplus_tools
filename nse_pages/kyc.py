@@ -1,67 +1,9 @@
-import streamlit as st
-import requests
-import gspread
-from google.oauth2.service_account import Credentials
-import datetime
-# Ensure you have your utils import here if needed
-# from nse_pages.utils import TABLE_STYLE, render_custom_table, get_network_details
-
-# --- CONFIG ---
-KYC_PRIORITY = ["PAN NO", "KYC STATUS", "KYC STATUS REMARK", "NAME"]
-
-# CSS for the table (If you don't have it imported from utils)
-TABLE_STYLE = """
-<style>
-    table {width: 100%; border-collapse: collapse;}
-    th {background-color: #f0f2f6; color: #31333F; padding: 10px; font-weight: 600; text-align: left; border-bottom: 2px solid #e6e9ef;}
-    td {padding: 8px; border-bottom: 1px solid #f0f2f6; color: #31333F;}
-    tr:hover {background-color: #f9fafb;}
-</style>
-"""
-
-# Helper to render table (If you don't have it imported)
-def render_custom_table(data, priority_fields):
-    html = "<table><thead><tr><th>Field</th><th>Value</th></tr></thead><tbody>"
-    
-    # Priority rows first
-    for key in priority_fields:
-        if key in data:
-            html += f"<tr><td><strong>{key}</strong></td><td>{data[key]}</td></tr>"
-    
-    # Rest of the data
-    for key, val in data.items():
-        if key not in priority_fields:
-            html += f"<tr><td>{key}</td><td>{val}</td></tr>"
-            
-    html += "</tbody></table>"
-    return html
-
-def get_network_details():
-    # Placeholder if not imported
-    return {"User_Public_IP": "Unknown", "Browser_Info": "Unknown"}
-
-def log_to_google_sheet(pan, full_response_json, net_info):
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        sheet_id = "1BEwqqc8rDTSSyYiDwPbc06MCyQIBSNblppbzopS2Rqc" # KYC Sheet
-        sheet = client.open_by_key(sheet_id).sheet1 
-        
-        api_text = str(full_response_json)
-        net_text = f"User IP: {net_info.get('User_Public_IP')}\nBrowser: {net_info.get('Browser_Info')}"
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.append_row([timestamp, pan, api_text, net_text])
-    except Exception as e:
-        print(f"Logging Error: {e}")
+import streamlit.components.v1 as components
+import json
 
 def render(token_headers):
-    st.markdown("## 🔍 KYC Status Check")
-    st.caption("Check KYC status using NSE Invest API (Secure)")
-    
-    # INJECT SHARED CSS
-    st.markdown(TABLE_STYLE, unsafe_allow_html=True)
+    st.markdown("## 🔍 KYC Status Check (Client-Side)")
+    st.caption("Runs in your browser to bypass IP blocks. (Note: Logging disabled)")
     
     with st.form("kyc_form"):
         pan_input = st.text_input("Enter PAN Number", placeholder="ABCDE1234F", max_chars=10)
@@ -73,53 +15,87 @@ def render(token_headers):
             st.warning("Please enter a PAN number.")
             return
 
-        with st.spinner(f"Checking KYC for {pan_number}..."):
-            try:
-                # If get_network_details is not imported, comment this line out
-                try: net_info = get_network_details()
-                except: net_info = {"User_Public_IP": "Unknown"}
+        # We inject HTML + JavaScript to make the request from YOUR browser
+        # This bypasses the Streamlit Cloud IP block.
+        
+        html_code = f"""
+        <!DOCTYPE html>
+        <html>
+        <head>
+        <style>
+            body {{ font-family: sans-serif; padding: 10px; }}
+            .status-box {{ padding: 15px; border-radius: 8px; border: 1px solid #ddd; background: #f9fafb; }}
+            table {{ width: 100%; border-collapse: collapse; margin-top: 10px; }}
+            th {{ text-align: left; padding: 8px; background: #eee; border-bottom: 2px solid #ddd; font-size: 14px; }}
+            td {{ padding: 8px; border-bottom: 1px solid #eee; font-size: 14px; }}
+            .error {{ color: #d32f2f; font-weight: bold; }}
+            .success {{ color: #2e7d32; font-weight: bold; }}
+            .loader {{ font-style: italic; color: #666; }}
+        </style>
+        </head>
+        <body>
+            <div id="status" class="loader">🔄 Connecting to NSE from your browser...</div>
+            <div id="result"></div>
 
-                url = "https://www.nseinvest.com/nsemfdesk/api/v2/utility/KYC_CHECK"
-                
-                # 🚀 REAL CHROME BROWSER HEADERS (The "Nuclear" Option)
-                # This mimics a standard Chrome browser on Windows perfectly.
-                chrome_headers = {
-                    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-                    "Accept": "application/json, text/plain, */*",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "Content-Type": "application/json",
-                    "Origin": "https://www.nseinvest.com",
-                    "Referer": "https://www.nseinvest.com/",
-                    "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="120", "Google Chrome";v="120"',
-                    "Sec-Ch-Ua-Mobile": "?0",
-                    "Sec-Ch-Ua-Platform": '"Windows"',
-                    "Sec-Fetch-Dest": "empty",
-                    "Sec-Fetch-Mode": "cors",
-                    "Sec-Fetch-Site": "same-origin",
-                    "Connection": "keep-alive"
-                }
+            <script>
+                async function checkKYC() {{
+                    const url = "https://www.nseinvest.com/nsemfdesk/api/v2/utility/KYC_CHECK";
+                    const payload = {{ "pan_no": "{pan_number}" }};
+                    
+                    try {{
+                        const response = await fetch(url, {{
+                            method: "POST",
+                            headers: {{
+                                "Content-Type": "application/json",
+                                "Accept": "application/json"
+                            }},
+                            body: JSON.stringify(payload)
+                        }});
 
-                payload = {"pan_no": pan_number}
+                        if (!response.ok) {{
+                            throw new Error("Server Error: " + response.status);
+                        }}
+
+                        const data = await response.json();
+                        
+                        // Build Table
+                        let tableHtml = "<table><tr><th>Field</th><th>Value</th></tr>";
+                        
+                        // Priority Fields
+                        const priorities = ["PAN NO", "KYC STATUS", "KYC STATUS REMARK", "NAME"];
+                        priorities.forEach(key => {{
+                            if (data[key]) {{
+                                tableHtml += `<tr><td><strong>${{key}}</strong></td><td>${{data[key]}}</td></tr>`;
+                            }}
+                        }});
+                        
+                        // Other Fields
+                        for (const [key, value] of Object.entries(data)) {{
+                            if (!priorities.includes(key)) {{
+                                tableHtml += `<tr><td>${{key}}</td><td>${{value}}</td></tr>`;
+                            }}
+                        }}
+                        tableHtml += "</table>";
+
+                        document.getElementById("status").innerHTML = '<span class="success">✅ Request Successful</span>';
+                        document.getElementById("result").innerHTML = tableHtml;
+
+                    }} catch (error) {{
+                        console.error(error);
+                        let msg = error.message;
+                        if (msg.includes("Failed to fetch")) {{
+                            msg = "⚠️ Browser Blocked (CORS): The NSE server blocked this request because it didn't come from their own website. <br><br><b>Solution:</b> You must use a Proxy (Option 1) or Run Locally (Option 3).";
+                        }}
+                        document.getElementById("status").innerHTML = `<div class="status-box error">${{msg}}</div>`;
+                    }}
+                }}
                 
-                # ⚠️ TIMEOUT ADDED: Sometimes WAFs delay responses to annoy bots
-                response = requests.post(url, headers=chrome_headers, json=payload, timeout=10)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    st.success("Request Successful")
-                    
-                    log_to_google_sheet(pan_number, data, net_info)
-                    
-                    html_table = render_custom_table(data, priority_fields=KYC_PRIORITY)
-                    st.markdown(html_table, unsafe_allow_html=True)
-                    
-                else:
-                    st.error(f"API Error: {response.status_code}")
-                    if response.status_code == 403:
-                        st.error("🚫 Blocked by NSE Security. Try checking from a different network (e.g., mobile hotspot) as your current IP might be flagged.")
-                    else:
-                        st.text(response.text)
-            
-            except Exception as e:
-                st.error(f"Connection Error: {e}")
+                // Run immediately
+                checkKYC();
+            </script>
+        </body>
+        </html>
+        """
+        
+        # Render the JS component with enough height to show the table
+        components.html(html_code, height=600, scrolling=True)
