@@ -104,19 +104,30 @@ def render_custom_table(data_dict, priority_fields=None):
 # --- 4. NETWORK INFO HELPER (Shared) ---
 def get_network_details():
     details = {}
+    
+    # 1. Server IP (Outgoing IP of the machine running the script)
     try:
         details['Streamlit_Server_IP'] = requests.get('https://api.ipify.org').text
     except:
         details['Streamlit_Server_IP'] = "Unknown"
+
+    # 2. Client/User Info (Incoming request headers)
     try:
-        headers = _get_websocket_headers()
+        # UPDATED: Using the official st.context.headers instead of _get_websocket_headers
+        headers = st.context.headers
+        
         if headers:
-            details['User_Public_IP'] = headers.get("X-Forwarded-For", "Hidden/Localhost")
+            # Note: On a local server without a proxy, "X-Forwarded-For" might be None.
+            # "Host" is usually a good fallback for local setups if you just want to see the address used.
+            details['User_Public_IP'] = headers.get("X-Forwarded-For", "Local/Direct Connection")
             details['Browser_Info'] = headers.get("User-Agent", "Unknown")
         else:
-            details['User_Public_IP'] = "Localhost"
+            details['User_Public_IP'] = "Unknown"
             details['Browser_Info'] = "Unknown"
-    except:
-        details['User_Public_IP'] = "Error"
+            
+    except Exception as e:
+        details['User_Public_IP'] = f"Error: {e}"
         details['Browser_Info'] = "Error"
+        
     return details
+
