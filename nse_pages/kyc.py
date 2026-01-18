@@ -1,29 +1,13 @@
 import streamlit as st
 import requests
-import gspread
-from google.oauth2.service_account import Credentials
 import datetime
 # IMPORT UTILS
 from nse_pages.utils import TABLE_STYLE, render_custom_table, get_network_details
+# IMPORT LOCAL DB
+from db import log_nse_event
 
 # --- CONFIG ---
 KYC_PRIORITY = ["PAN NO", "KYC STATUS", "KYC STATUS REMARK", "NAME"]
-
-def log_to_google_sheet(pan, full_response_json, net_info):
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        sheet_id = "1BEwqqc8rDTSSyYiDwPbc06MCyQIBSNblppbzopS2Rqc" # KYC Sheet
-        sheet = client.open_by_key(sheet_id).sheet1 
-        
-        api_text = str(full_response_json)
-        net_text = f"User IP: {net_info.get('User_Public_IP')}\nBrowser: {net_info.get('Browser_Info')}"
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.append_row([timestamp, pan, api_text, net_text])
-    except Exception as e:
-        print(f"Logging Error: {e}")
 
 def render(headers):
     st.markdown("## 🔍 KYC Status Check")
@@ -46,6 +30,7 @@ def render(headers):
             try:
                 net_info = get_network_details()
                 url = "https://www.nseinvest.com/nsemfdesk/api/v2/utility/KYC_CHECK"
+                # Defined payload here so we can log it later
                 payload = {"pan_no": pan_number}
                 
                 response = requests.post(url, headers=headers, json=payload)
@@ -54,13 +39,17 @@ def render(headers):
                     data = response.json()
                     st.success("Request Successful")
                     
-                    log_to_google_sheet(pan_number, data, net_info)
+                    # --- REPLACED GOOGLE SHEET LOGGING WITH SQLITE ---
+                    # Logs: Type="KYC", Key=PAN, Payload={...}, Response={...}, NetInfo={...}
+                    log_nse_event("KYC", pan_number, payload, data, net_info)
                     
                     # --- USE SHARED RENDERER ---
                     html_table = render_custom_table(data, priority_fields=KYC_PRIORITY)
                     st.markdown(html_table, unsafe_allow_html=True)
                     
                 else:
+                    # Optional: You can also log failures if you wish
+                    # log_nse_event("KYC_FAIL", pan_number, payload, {"error": response.text}, net_info)
                     st.error(f"API Error: {response.status_code}")
                     st.text(response.text)
             

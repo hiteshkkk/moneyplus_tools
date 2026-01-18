@@ -60,7 +60,7 @@ if "nse_auth_headers" not in st.session_state:
             'memberId': member_id,
             'Content-Type': 'application/json',
             'Authorization': f"Basic {auth_base64}",
-            'User-Agent': 'PostmanRuntime/7.51.0', # Matching your screenshot
+            'User-Agent': 'PostmanRuntime/7.51.0', 
             'Accept': '*/*',
             'Connection': 'keep-alive'
         }
@@ -69,14 +69,18 @@ if "nse_auth_headers" not in st.session_state:
         st.error(f"Failed to generate secure headers: {e}")
         st.stop()
 
-# ... (Previous imports and Auth logic remain the same) ...# ... (Keep existing imports and auth logic) ...
-
-# ... (Previous imports and Auth logic remain the same) ...
-
 # --- 4. NAVIGATION SIDEBAR ---
+# ✅ I ADDED "SIP Report" TO THIS LIST BELOW
 tool_selection = st.sidebar.radio(
     "Select Tool:",
-    ["KYC Check", "UCC Details", "Order Status", "Systematic Order Status", "Mandate Status"]  # <--- NEW ADDITION
+    [
+        "KYC Check", 
+        "UCC Details", 
+        "Order Status", 
+        "Systematic Order Status", 
+        "Mandate Status", 
+        "SIP Report"  # <--- Added this so the menu item appears
+    ]
 )
 
 # --- 5. LOAD MODULES ---
@@ -97,9 +101,13 @@ try:
         from nse_pages import systematic_order
         systematic_order.render(st.session_state.nse_auth_headers)
         
-    elif tool_selection == "Mandate Status":  # <--- NEW BLOCK
+    elif tool_selection == "Mandate Status":
         from nse_pages import mandate_status
         mandate_status.render(st.session_state.nse_auth_headers)
+       
+    elif tool_selection == "SIP Report":
+        from nse_pages import sip_report
+        sip_report.render(st.session_state.nse_auth_headers)
 
 except ImportError as e:
     st.error(f"⚠️ Error loading module: {e}")

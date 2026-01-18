@@ -1,11 +1,14 @@
 import streamlit as st
 import google.generativeai as genai
 from datetime import date
-import gspread
-from google.oauth2.service_account import Credentials
+from auth import check_password
+from db import save_meeting_note  # <--- NEW DATABASE IMPORT
 
-# --- CONFIGURATION ---
-MEETING_SHEET_ID = "113g598FEs7DxZYlBVAP1iHYqrkAUj49Ra6U95UA9PEE"
+# --- 1. SETUP & AUTH ---
+st.set_page_config(page_title="Meeting Notes Creator", page_icon="📄", layout="wide")
+
+# Use the centralized auth from auth.py
+check_password()
 
 # --- CSS FOR GREEN BUTTON ---
 st.markdown("""
@@ -29,31 +32,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# --- PASSWORD PROTECTION ---
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if st.session_state.authenticated:
-        return True
-    
-    st.title("🔒 Moneyplus Login")
-    pwd = st.text_input("Enter Password", type="password")
-    if st.button("Login"):
-        if pwd == st.secrets["APP_PASSWORD"]:
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("❌ Wrong Password")
-    st.stop()
-
-check_password()
-
-# --- 1. SETUP ---
-st.set_page_config(page_title="Meeting Notes Creator", page_icon="📄", layout="wide")
-
-API_KEY = None
-if "GEMINI_API_KEY" in st.secrets:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
+# API Key handling
+API_KEY = st.secrets.get("GEMINI_API_KEY")
 
 # Sidebar
 with st.sidebar:
@@ -65,46 +45,11 @@ with st.sidebar:
 if API_KEY:
     genai.configure(api_key=API_KEY)
 
-# --- 2. GOOGLE SHEETS FUNCTIONS ---
-def get_gspread_client():
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        return gspread.authorize(creds)
-    except Exception as e:
-        st.error(f"❌ Auth Error: {e}")
-        return None
-
-def log_meeting_to_sheet(data_dict):
-    client = get_gspread_client()
-    if not client: return False
-    try:
-        sheet = client.open_by_key(MEETING_SHEET_ID)
-        ws = sheet.get_worksheet(0)
-        
-        # Headers: Client Name | RM Name | Meeting Date | Location | Input Text | CRM Response | Client Version
-        ws.append_row([
-            data_dict.get('client_name', ''),
-            data_dict.get('rm_name', ''),
-            str(data_dict.get('date', '')),
-            data_dict.get('location', ''),
-            data_dict.get('input_text', ''),
-            data_dict.get('crm_response', ''),
-            data_dict.get('client_version', '')
-        ])
-        return True
-    except Exception as e:
-        # Detailed error message to help debug
-        st.error(f"❌ Sheet Save Error: {e}")
-        st.info("💡 Tip: Ensure the Google Sheet is shared with the Service Account email address found in your secrets.toml file.")
-        return False
-
-# --- 3. UI LAYOUT ---
+# --- 2. UI LAYOUT ---
 st.title("📄 Meeting Notes Creator")
 st.markdown("Turn raw notes into professional CRM records and Client updates.")
 
-# Initialize Session State
+# Initialize Session State for results
 if "generated_crm" not in st.session_state:
     st.session_state.generated_crm = ""
 if "generated_client" not in st.session_state:
@@ -125,10 +70,9 @@ with st.form("notes_form"):
     raw_notes = st.text_area("Meeting Summary (Raw Notes)", height=300, 
                             placeholder="Type raw notes here...")
 
-    # BUTTON IS GREEN (Defined in CSS above)
     submitted = st.form_submit_button("✨ Generate & Save Notes", type="primary")
 
-# --- 4. GENERATION & AUTO-SAVE LOGIC ---
+# --- 3. GENERATION & DATABASE LOGIC ---
 if submitted:
     if not API_KEY:
         st.error("🚨 API Key is missing.")
@@ -171,38 +115,25 @@ if submitted:
                 Generate exactly two versions separated by "|||SEPARATOR|||".
                 
                 1. CRM VERSION (Internal): 
-
                    - Plain text only, using short numbered lists for key points and actions.
-
                    - NO markdown, bold, italics, emojis, or extra formatting.
-
-                   - Optimize for extreme BREVITY (under 200 words total) but full CLARITY—focus only on factual recap of discussed points (e.g., investment strategy, profile, contributions, expenses, insurance, loan, goals) without any advice, opinions, or added details.
-
+                   - Optimize for extreme BREVITY (under 200 words total).
                    - Structure: 
                      - Start with header: "CRM Notes - {client_name} - {meeting_date} - {location}".
-                     - "Key Discussion Points:" followed by a short numbered list (3-6 items max, one sentence each).
-                     - "Action Items:" followed by a numbered list splitting client actions and team actions (e.g., "Client: 1. Share portfolio details. Team: 1. Provide fund options.").
-                     - End abruptly—no closing or fluff.
+                     - "Key Discussion Points:" (3-6 items max).
+                     - "Action Items:" splitting client and team actions.
                 
                 2. CLIENT VERSION (External): 
-
-                   - Tone: Professional, polite, action-oriented—focus only on recapping what was discussed, without adding new advice or suggestions.
-
-                   - Language: Very simple, friendly Indian English (e.g., use warm phrases like "Hope you are fine!" or "Thank you so much", avoid complex words).
-
+                   - Tone: Professional, polite, action-oriented.
+                   - Language: Simple, friendly Indian English.
                    - Formatting: {fmt_instruction}
-
                    - Structure: 
-                     - Start with a subject header like "Quick Notes from Your Moneyplus Meeting with {rm_name} Ji - {client_name} 😊".
-                     - Greeting: "Dear [first name from {client_name}] Ji,".
-                     - Thank the client and mention the meeting date/location briefly.
-                     - "Key Points from Our Chat:" section with a bulleted list summarizing only the main topics discussed (e.g., investment strategy, client profile, monthly contributions, expenses, health insurance, loan, long-term goals—keep it factual and brief).
-                     - "Actions Expected:" section with bullets or numbers listing actions noted for the client and team (e.g., sharing details, confirmations, providing guidance).
-                     - Add a polite request: "If any point is missing or not correct, please let us know right away!".
+                     - Header: "Quick Notes from Your Moneyplus Meeting with {rm_name} Ji - {client_name} 😊".
+                     - Greeting: "Dear [first name] Ji,".
+                     - Recap main topics faktually.
+                     - "Actions Expected" for client and team.
                      - Close with "Best wishes, {rm_name}".
 
-                   - Keep the entire version very short (under 250 words) for easy reading.
-                
                 ### OUTPUT FORMAT
                 CRM VERSION TEXT...
                 |||SEPARATOR|||
@@ -217,15 +148,14 @@ if submitted:
                     crm_part = response.text
                     client_part = "Could not auto-separate."
 
-                # Update Session State
                 st.session_state.generated_crm = crm_part.strip()
                 st.session_state.generated_client = client_part.strip()
                 
             except Exception as e:
                 st.error(f"Generation Error: {e}")
 
-        # AUTO-SAVE TO SHEET
-        with st.spinner("Saving to Google Sheet..."):
+        # --- SAVE TO LOCAL SQLITE ---
+        with st.spinner("Saving to local database..."):
             final_rm_entry = f"{rm_name} (By: {meeting_done_by})"
             payload = {
                 "client_name": client_name,
@@ -237,12 +167,13 @@ if submitted:
                 "client_version": st.session_state.generated_client
             }
             
-            if log_meeting_to_sheet(payload):
-                st.success(f"✅ Generated & Saved Successfully for {client_name}!")
+            # Using the new local save function from db.py
+            if save_meeting_note(payload):
+                st.success(f"✅ Generated & Saved to Local DB for {client_name}!")
             else:
-                st.error("❌ Generation successful, but saving to Sheet failed.")
+                st.error("❌ Generation successful, but database save failed.")
 
-# --- 5. DISPLAY OUTPUT ---
+# --- 4. DISPLAY OUTPUT ---
 if st.session_state.generated_crm:
     st.divider()
     st.markdown("### 📋 Generated Notes")
@@ -252,10 +183,8 @@ if st.session_state.generated_crm:
     
     with col_a:
         st.subheader("📂 CRM Version")
-        # st.code provides a built-in COPY button!
         st.code(st.session_state.generated_crm, language=None)
         
     with col_b:
         st.subheader("📱 Client Version")
-        # st.code provides a built-in COPY button!
         st.code(st.session_state.generated_client, language="markdown")

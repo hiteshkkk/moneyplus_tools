@@ -1,11 +1,11 @@
 import streamlit as st
 import requests
 import json
-import gspread
-from google.oauth2.service_account import Credentials
 import datetime
-# Import Shared CSS and Network Utils
+# IMPORT UTILS
 from nse_pages.utils import TABLE_STYLE, get_network_details, format_html_value
+# IMPORT LOCAL DB
+from db import log_nse_event
 
 # --- CONFIG ---
 ORDER_TYPES = [
@@ -14,29 +14,6 @@ ORDER_TYPES = [
 ]
 
 EXCLUDED_FIELDS = ["MEMBER NAME", "MEMBER CODE"]
-
-# --- HELPER: LOG TO NEW SHEET ---
-def log_to_google_sheet(request_body, response_json):
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        
-        sheet_id = "1f5rTXv9DiEpfbQke-1rHYIXjD5U0UX7U9A7Ypit0x58"
-        sheet = client.open_by_key(sheet_id).sheet1 
-        
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        body_str = json.dumps(request_body, indent=2)
-        
-        resp_str = json.dumps(response_json)
-        if len(resp_str) > 500:
-            resp_str = resp_str[:500] + "... [TRUNCATED]"
-            
-        sheet.append_row([timestamp, body_str, resp_str])
-        
-    except Exception as e:
-        print(f"Logging Error: {e}")
 
 # --- HELPER: RENDER MULTI-COLUMN HTML TABLE ---
 def render_pivot_table(records):
@@ -66,7 +43,6 @@ def render_pivot_table(records):
 
     # 2. Build HTML Header
     html = "<div style='overflow-x: auto;'><table class='custom-report'>"
-    
     html += "<thead><tr><th class='field-label'>FIELD</th>"
     
     for i in range(len(records)):
@@ -88,7 +64,7 @@ def render_pivot_table(records):
     html += "</tbody></table></div>"
     return html
 
-# --- MAIN RENDER ---
+# --- MAIN RENDER FUNCTION ---
 def render(headers):
     st.markdown("## 📦 Order Lifecycle Status")
     st.caption("Check status by Order No OR Client Code (7-Day Range)")
@@ -103,12 +79,13 @@ def render(headers):
         with c2:
             order_no = st.text_input("Order No / Product ID")
         with c3:
-            client_code = st.text_input("Client UCC").upper()
+            client_code_input = st.text_input("Client UCC")
+            client_code = client_code_input.upper() if client_code_input else ""
 
         c4, c5, c6 = st.columns(3)
         today = datetime.date.today()
-        default_start = today - datetime.timedelta(days=7)
-        default_end = today - datetime.timedelta(days=1)
+        default_start = today - datetime.timedelta(days=6)
+        default_end = today - datetime.timedelta(days=0)
         
         with c4:
             start_date = st.date_input("Start Date", default_start)
@@ -123,29 +100,39 @@ def render(headers):
         final_order_type = "" if order_type_ui == "Select Option" else order_type_ui
         
         payload = {}
+        # Define a key for logging (either Order No or Client Code)
+        search_key = ""
+
         if final_order_type and order_no:
             payload = {
                 "from_date": "", "to_date": "",
                 "Product_type": final_order_type, "product_id": order_no, "client_code": ""
             }
+            search_key = f"{final_order_type}-{order_no}"
         elif client_code:
             payload = {
                 "from_date": start_date.strftime("%d-%m-%Y"),
                 "to_date": end_date.strftime("%d-%m-%Y"),
                 "Product_type": "", "product_id": "", "client_code": client_code
             }
+            search_key = client_code
         else:
             st.error("🚨 Please enter (Order Type + No) OR (Client Code)")
             return
 
         with st.spinner("Fetching Order Lifecycle..."):
             try:
+                # Capture Network Info
+                net_info = get_network_details()
+                
                 url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/ORDER_LIFECYCLE"
                 response = requests.post(url, headers=headers, json=payload)
 
                 if response.status_code == 200:
                     data = response.json()
-                    log_to_google_sheet(payload, data)
+                    
+                    # --- REPLACED GOOGLE SHEET LOGGING WITH SQLITE ---
+                    log_nse_event("ORDER", search_key, payload, data, net_info)
                     
                     records = data.get("report_data", [])
                     if not records:
@@ -158,6 +145,8 @@ def render(headers):
                     st.markdown(html_table, unsafe_allow_html=True)
 
                 else:
+                    # Optional: Log failure
+                    # log_nse_event("ORDER_FAIL", search_key, payload, {"error": response.text}, net_info)
                     st.error(f"API Error: {response.status_code}")
                     st.text(response.text)
 

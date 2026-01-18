@@ -5,48 +5,23 @@ import os
 import json
 import streamlit.components.v1 as components
 from datetime import datetime
+from auth import check_password  # Ensure you have your centralized auth.py
+from db import save_discharge_audit # This must match your new db.py structure
 
-# --- PASSWORD PROTECTION START ---
-def check_password():
-    if "authenticated" not in st.session_state:
-        st.session_state.authenticated = False
-    if st.session_state.authenticated:
-        return True
-    
-    st.title("🔒 Moneyplus Login")
-    pwd = st.text_input("Enter Password", type="password")
-    if st.button("Login"):
-        if pwd == st.secrets["APP_PASSWORD"]:
-            st.session_state.authenticated = True
-            st.rerun()
-        else:
-            st.error("❌ Wrong Password")
-    st.stop()
+# --- 1. AUTHENTICATION ---
+st.set_page_config(page_title="Discharge Auditor", page_icon="🏥", layout="wide")
+check_password() # Use centralized login
 
-check_password()
-
-# --- 1. INITIALIZE API KEY ---
-API_KEY = None
-if "GEMINI_API_KEY" in st.secrets:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
+# --- 2. INITIALIZE API KEY ---
+API_KEY = st.secrets.get("GEMINI_API_KEY")
+if API_KEY:
+    genai.configure(api_key=API_KEY)
 
 # --- SIDEBAR CONFIGURATION ---
 with st.sidebar:
     st.image("https://moneyplus.in/wp-content/uploads/2019/01/moneyplus-logo-3-300x277.png", width=100)
-    st.title("Settings")
-    
-    if not API_KEY:
-        API_KEY = st.text_input("Enter Gemini API Key", type="password")
-        if not API_KEY:
-             st.warning("⚠️ Enter API Key to continue")
-    else:
-        st.success("Key Loaded Securely")
-
     model_name = "gemini-2.5-flash"
     st.caption(f"Model: {model_name}")
-
-if API_KEY:
-    genai.configure(api_key=API_KEY)
 
 # --- MAIN PAGE UI ---
 st.title("Moneyplus Discharge Summary Auditor")
@@ -106,48 +81,34 @@ if st.button("Generate Audit Report", type="primary"):
                 }
                 """
 
-                # 3. USER PROMPT
-                user_prompt = f"""
-                Claim Intimation No: "{claim_id}"
-                TASK: Read the attached discharge summary and return ONLY a valid JSON object.
-                STEPS:
-                1) Extract patient basic details.
-                2) Extract final diagnosis (simple wording).
-                3) Write "explanation_of_diagnosis_and_treatment" in English, Hindi, Marathi.
-                4) Extract medical history as multi-line string.
-                5) Extract red flags as multi-line string.
-                """
-
-                # 4. Generate
+                # 3. Generate Content
                 model = genai.GenerativeModel(model_name, system_instruction=system_instruction)
                 sample_file = genai.upload_file(path=tmp_path, display_name="Claim Doc")
                 
                 response = model.generate_content(
-                    [sample_file, user_prompt],
+                    [sample_file, f"Claim ID: {claim_id}"],
                     generation_config={"response_mime_type": "application/json"}
                 )
                 
+                # Parse AI result
                 data = json.loads(response.text)
                 gen_time = datetime.now().strftime("%d/%m/%Y %I:%M:%S %p")
 
-                # 5. Build HTML Report (Self-contained for Component)
-                # We include the <style> tag INSIDE this string so the component is fully styled.
+                # --- 4. THE SQLITE SAVE (New Addition) ---
+                # This sends the data to your db.py to be saved in 'discharge_audits'
+                if save_discharge_audit(claim_id, data):
+                    st.toast(f"✅ Audit for {claim_id} saved to database!")
+                else:
+                    st.error("⚠️ Audit generated, but database save failed. Check your db.py logic.")
+
+                # --- 5. BUILD HTML REPORT (Existing Logic) ---
                 html_content = f"""
                 <!DOCTYPE html>
                 <html>
                 <head>
                 <style>
                     body {{ font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; margin: 0; padding: 0; background-color: #f4f4f4; }}
-                    .report-container {{
-                        background-color: white;
-                        padding: 40px;
-                        border: 1px solid #e0e0e0;
-                        border-radius: 5px;
-                        color: #000;
-                        max-width: 850px;
-                        margin: 20px auto;
-                        box-shadow: 0 2px 5px rgba(0,0,0,0.05);
-                    }}
+                    .report-container {{ background-color: white; padding: 40px; border: 1px solid #e0e0e0; border-radius: 5px; color: #000; max-width: 850px; margin: 20px auto; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }}
                     .brand-text {{ color: #555; font-size: 14px; font-weight: bold; margin-bottom: 5px; }}
                     .main-title {{ color: #000; font-size: 24px; font-weight: bold; margin: 0; }}
                     .sub-title {{ color: #666; font-size: 14px; margin-bottom: 20px; }}
@@ -160,7 +121,6 @@ if st.button("Generate Audit Report", type="primary"):
                     .lang-title {{ font-weight: bold; font-size: 15px; margin-top: 15px; color: #000; }}
                     .expl-sub {{ font-size: 12px; color: #666; font-style: italic; margin-bottom: 2px; }}
                     .footer {{ margin-top: 40px; font-size: 11px; color: #888; border-top: 1px solid #eee; padding-top: 10px; }}
-                    
                     @media print {{
                         body {{ background-color: white; }}
                         .report-container {{ box-shadow: none; margin: 0; border: none; max-width: 100%; width: 100%; padding: 0; }}
@@ -168,24 +128,18 @@ if st.button("Generate Audit Report", type="primary"):
                     }}
                 </style>
                 <script>
-                    function triggerPrint() {{
-                        document.title = "Audit_{claim_id}";
-                        window.print();
-                    }}
+                    function triggerPrint() {{ document.title = "Audit_{claim_id}"; window.print(); }}
                 </script>
                 </head>
                 <body>
-                
                 <div class="report-container">
                     <div style="text-align: right; margin-bottom: 10px;" class="no-print">
                         <button onclick="triggerPrint()" style="background: #0056b3; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: bold;">🖨️ Print / Save PDF</button>
                     </div>
-
                     <div class="brand-text">moneyplus</div>
                     <div class="main-title">Moneyplus Discharge Summary AI Auditor</div>
                     <div class="sub-title">AI-assisted discharge summary extraction for claims review</div>
                     <div class="claim-header">Claim Intimation No: {claim_id}</div>
-
                     <div class="section-head">BASIC DETAILS</div>
                     <table class="details-table">
                         <tr><td class="label-col">Name & Age</td><td>{data.get('name_and_age', 'N/A')}</td></tr>
@@ -195,28 +149,21 @@ if st.button("Generate Audit Report", type="primary"):
                         <tr><td class="label-col">Total duration</td><td>{data.get('total_duration_hours', 'N/A')}</td></tr>
                     </table>
                     <div style="font-size:12px; color:#888; margin-bottom:20px;">Generated: {gen_time}</div>
-
                     <div class="section-head">DIAGNOSIS (SIMPLE)</div>
                     <div class="content-text">{data.get('diagnosis', 'N/A')}</div>
-
                     <div class="lang-title">English</div>
                     <div class="expl-sub">Explanation</div>
                     <div class="content-text">{data['explanation_of_diagnosis_and_treatment'].get('English', 'N/A')}</div>
-
                     <div class="lang-title">Hindi</div>
                     <div class="expl-sub">Explanation</div>
                     <div class="content-text">{data['explanation_of_diagnosis_and_treatment'].get('Hindi', 'N/A')}</div>
-
                     <div class="lang-title">Marathi</div>
                     <div class="expl-sub">Explanation</div>
                     <div class="content-text">{data['explanation_of_diagnosis_and_treatment'].get('Marathi', 'N/A')}</div>
-
                     <div class="section-head">HISTORY</div>
                     <div class="content-text" style="white-space: pre-line;">{data.get('medical_history_text', 'Not mentioned')}</div>
-
                     <div class="section-head" style="color: #d32f2f;">POTENTIAL RED FLAGS</div>
                     <div class="content-text" style="white-space: pre-line;">{data.get('potential_red_flags_text', 'None identified')}</div>
-
                     <div class="footer">Disclaimer: This is an AI generated summary and may not be accurate.</div>
                 </div>
                 </body>
@@ -227,12 +174,8 @@ if st.button("Generate Audit Report", type="primary"):
                 st.success("Report Generated Successfully!")
 
                 # --- THE FIX: USE components.html ---
-                # This renders the HTML inside an iframe, preventing Streamlit from treating it as Markdown/Code.
-                # 'height=1000' ensures the whole report is visible.
-                # 'scrolling=True' adds a scrollbar if the report is very long.
                 components.html(html_content, height=1000, scrolling=True)
 
-                # Optional: Provide a download button for the raw HTML file as backup
                 st.download_button(
                     label="📥 Download HTML File",
                     data=html_content,
