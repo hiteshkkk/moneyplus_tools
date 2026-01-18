@@ -12,6 +12,9 @@ EXCLUDED_FIELDS = ["MEMBER NAME", "MEMBER CODE", "MEMBER ID"]
 
 # --- HELPER: RENDER PIVOT TABLE ---
 def render_pivot_table(records):
+    """
+    Standard renderer for NSE reports: Keys on Left, Values on Right.
+    """
     if not records:
         return "No Data"
 
@@ -56,69 +59,65 @@ def render_pivot_table(records):
 
 # --- MAIN RENDER ---
 def render(headers):
-    st.markdown("## 📜 NSE Mandate Status")
-    st.caption("Check Mandate Status (Details)")
+    st.markdown("## 📈 SIP Registration Report")
+    st.caption("Fetch active SIP/XSIP details for a client.")
     
     # Inject Shared CSS
     st.markdown(TABLE_STYLE, unsafe_allow_html=True)
 
-    with st.form("mandate_status_form"):
-        c1, c2 = st.columns(2)
-        with c1:
-            mandate_id = st.text_input("Mandate ID").upper()
-        with c2:
-            client_code = st.text_input("Client UCC").upper()
-
-        st.write("") # Spacer
-        submitted = st.form_submit_button("Fetch Status", use_container_width=True)
+    with st.form("sip_report_form"):
+        # Input for UCC
+        col1, col2 = st.columns([2, 1])
+        with col1:
+            client_code = st.text_input("Enter Client UCC", placeholder="e.g. YH032").upper()
+        with col2:
+            st.write("") # Spacer to align button
+            st.write("") 
+            submitted = st.form_submit_button("Fetch Report", use_container_width=True)
 
     if submitted:
-        # Validation
-        if not mandate_id and not client_code:
-            st.error("🚨 Please enter at least one field (Mandate ID or Client UCC)")
+        if not client_code:
+            st.warning("⚠️ Please enter a Client Code.")
             return
 
-        # Prepare Payload
+        # Prepare Payload (Based on your Curl)
         payload = {
+            "xsip_reg_id": "",
+            "client_code": client_code,
             "from_date": "",
-            "to_date": "",
-            "client_code": client_code if client_code else "",
-            "mandate_id": mandate_id if mandate_id else ""
+            "to_date": ""
         }
-        
-        # Define Search Key for Logging
-        search_key = mandate_id if mandate_id else client_code
 
-        with st.spinner("Fetching Mandate Details..."):
+        with st.spinner(f"Fetching SIP Report for {client_code}..."):
             try:
                 # Capture Network Info
                 net_info = get_network_details()
                 
-                url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/MANDATE_STATUS"
+                url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/XSIP_REG_REPORT"
+                
+                # API Call
                 response = requests.post(url, headers=headers, json=payload)
 
                 if response.status_code == 200:
                     data = response.json()
                     
-                    # ✅ REPLACED GOOGLE SHEET LOGGING WITH SQLITE
-                    # Log Type="MANDATE", Key=MandateID/UCC, Payload=Request, Response=FullData
-                    log_nse_event("MANDATE", search_key, payload, data, net_info)
+                    # ✅ Log to SQLite
+                    # Log Type="SIP_REPORT", Key=UCC, Payload=Request, Response=FullData
+                    log_nse_event("SIP_REPORT", client_code, payload, data, net_info)
                     
                     records = data.get("report_data", [])
 
                     if not records:
-                        st.warning("No records found.")
+                        st.warning("No SIP records found for this client.")
                         return
 
-                    st.success(f"Found {len(records)} Records")
+                    st.success(f"Found {len(records)} SIP Records")
                     
-                    # Render Table (Pivot)
+                    # Render Table
                     html_table = render_pivot_table(records)
                     st.markdown(html_table, unsafe_allow_html=True)
 
                 else:
-                    # Optional: Log Failure
-                    # log_nse_event("MANDATE_FAIL", search_key, payload, {"error": response.text}, net_info)
                     st.error(f"API Error: {response.status_code}")
                     st.text(response.text)
 

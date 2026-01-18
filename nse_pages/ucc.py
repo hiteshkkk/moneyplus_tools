@@ -1,32 +1,16 @@
 import streamlit as st
 import requests
-import gspread
-from google.oauth2.service_account import Credentials
 import datetime
 # IMPORT UTILS
 from nse_pages.utils import TABLE_STYLE, render_custom_table, get_network_details
+# IMPORT LOCAL DB
+from db import log_nse_event
 
 # --- CONFIG ---
 UCC_PRIORITY = [
     "CLIENT CODE", "PRIMARY HOLDER NAME", "PRIMARY HOLDER PAN", "GUARDIAN NAME", "UCC STATUS",
     "AUTH STATUS", "BANK1 STATUS", "BANK1 REJECTION REMARKS", "HOLDING NATURE", 
 ]
-
-def log_to_google_sheet(client_code, full_response_json, net_info):
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        sheet_id = "1PI-BfizbrzMftNm69WxZ-YEnviA4aqeSjf4r4DZA4bw" # UCC Sheet
-        sheet = client.open_by_key(sheet_id).sheet1 
-        
-        api_text = str(full_response_json)
-        net_text = f"User IP: {net_info.get('User_Public_IP')}\nBrowser: {net_info.get('Browser_Info')}"
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        sheet.append_row([timestamp, client_code, api_text, net_text])
-    except Exception as e:
-        print(f"Logging Error: {e}")
 
 def render(headers):
     st.markdown("## 📋 NSE UCC Details")
@@ -36,7 +20,8 @@ def render(headers):
     st.markdown(TABLE_STYLE, unsafe_allow_html=True)
     
     with st.form("ucc_form"):
-        client_code = st.text_input("Enter Client Code", placeholder="e.g. YH032").upper()
+        client_code_input = st.text_input("Enter Client Code", placeholder="e.g. YH032")
+        client_code = client_code_input.upper() if client_code_input else ""
         submitted = st.form_submit_button("Fetch Details")
     
     if submitted:
@@ -48,13 +33,18 @@ def render(headers):
             try:
                 net_info = get_network_details()
                 url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/client_detail_report"
+                
+                # Payload defined explicitly so we can log it
                 payload = { "client_code": client_code, "from_date": "", "to_date": "" }
                 
                 response = requests.post(url, headers=headers, json=payload)
                 
                 if response.status_code == 200:
                     data = response.json()
-                    log_to_google_sheet(client_code, data, net_info)
+                    
+                    # --- REPLACED GOOGLE SHEET LOGGING WITH SQLITE ---
+                    # Logs: Type="UCC", Key=ClientCode, Payload={...}, Response={...}
+                    log_nse_event("UCC", client_code, payload, data, net_info)
 
                     if data.get("report_data") and len(data["report_data"]) > 0:
                         record = data["report_data"][0]

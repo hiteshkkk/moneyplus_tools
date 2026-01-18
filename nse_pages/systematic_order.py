@@ -1,38 +1,14 @@
 import streamlit as st
 import requests
 import json
-import gspread
-from google.oauth2.service_account import Credentials
 import datetime
 # Import Shared CSS and Utils
-from nse_pages.utils import TABLE_STYLE, format_html_value
+from nse_pages.utils import TABLE_STYLE, format_html_value, get_network_details
+# Import Local DB
+from db import log_nse_event
 
 # --- CONFIG ---
 EXCLUDED_FIELDS = ["MEMBER NAME", "MEMBER CODE", "MEMBER ID"]
-
-# --- HELPER: LOG TO GOOGLE SHEET ---
-def log_to_google_sheet(request_body, response_json):
-    try:
-        scope = ["https://www.googleapis.com/auth/spreadsheets", "https://www.googleapis.com/auth/drive"]
-        creds_dict = st.secrets["gcp_service_account"]
-        creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
-        client = gspread.authorize(creds)
-        
-        # Systematic Order Logs Sheet
-        sheet_id = "1SZfVmIc1ruhJT4_6O2BUgf7nqK2VH7mJFA_FijtK9os"
-        sheet = client.open_by_key(sheet_id).sheet1 
-        
-        timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        body_str = json.dumps(request_body, indent=2)
-        
-        resp_str = json.dumps(response_json)
-        if len(resp_str) > 500:
-            resp_str = resp_str[:500] + "... [TRUNCATED]"
-            
-        sheet.append_row([timestamp, body_str, resp_str])
-        
-    except Exception as e:
-        print(f"Logging Error: {e}")
 
 # --- HELPER: RENDER PIVOT TABLE ---
 def render_pivot_table(records):
@@ -71,20 +47,17 @@ def render_pivot_table(records):
     html += "</tbody></table></div>"
     return html
 
-# --- HELPER: RENDER TRANSACTION RESPONSE (NEW) ---
+# --- HELPER: RENDER TRANSACTION RESPONSE ---
 def render_transaction_response(response_json):
     """
     Renders the 'Place Order' response in a clean table with Status/Remark on top.
     """
     try:
-        # Extract the first record from transaction_details
         details = response_json.get("transaction_details", [])
         if not details:
             return "No Transaction Details Found"
             
         record = details[0]
-        
-        # Priority Fields to show at Top
         priority_keys = ["trxn_status", "trxn_remark", "trxn_order_id", "unique_reference_number"]
         
         html = "<table class='custom-report' style='margin-top: 10px;'>"
@@ -94,11 +67,8 @@ def render_transaction_response(response_json):
             if key in record:
                 val = str(record.get(key, ""))
                 clean_key = key.replace("_", " ").upper()
-                fmt_val = format_html_value(val) # Applies Green/Red colors
-                
-                # Make Status row slightly larger/bolder
+                fmt_val = format_html_value(val)
                 style = "font-size: 1.1em;" if "status" in key else ""
-                
                 html += f"<tr><td class='field-label'>{clean_key}</td><td class='field-value' style='{style}'>{fmt_val}</td></tr>"
         
         # 2. Render Remaining Fields
@@ -217,8 +187,8 @@ def render(headers):
 
         c3, c4, c5 = st.columns(3)
         today = datetime.date.today()
-        start_date = st.date_input("Start Date", today - datetime.timedelta(days=7))
-        end_date = st.date_input("End Date", today - datetime.timedelta(days=1))
+        start_date = st.date_input("Start Date", today - datetime.timedelta(days=6))
+        end_date = st.date_input("End Date", today - datetime.timedelta(days=0))
         
         with c5:
             st.write("") 
@@ -231,25 +201,31 @@ def render(headers):
             "trans_type": "ALL", "order_type": "ALL",
             "order_ids": "", "sub_order_type": "ALL", "client_code": ""
         }
+        search_key = ""
 
         if order_no:
             payload["order_ids"] = order_no
+            search_key = order_no
         elif client_code:
             payload["client_code"] = client_code
             payload["from_date"] = start_date.strftime("%Y-%m-%d")
             payload["to_date"] = end_date.strftime("%Y-%m-%d")
+            search_key = client_code
         else:
             st.error("🚨 Please enter either an Order No OR a Client Code.")
             return
 
         with st.spinner("Fetching Systematic Status..."):
             try:
+                net_info = get_network_details()
                 url = "https://www.nseinvest.com/nsemfdesk/api/v2/reports/ORDER_STATUS"
                 response = requests.post(url, headers=headers, json=payload)
 
                 if response.status_code == 200:
                     data = response.json()
-                    log_to_google_sheet(payload, data)
+                    
+                    # ✅ Log to SQLite (Status Check)
+                    log_nse_event("SYS_STATUS", search_key, payload, data, net_info)
                     
                     records = data.get("report_data", [])
                     if not records:
@@ -304,14 +280,17 @@ def render(headers):
                     st.info(f"Submitting {txn_mode} Order for Client {sel_rec.get('client_code')}...")
                     
                     try:
+                        net_info = get_network_details()
                         r2 = requests.post(reorder_url, headers=headers, json=reorder_payload)
+                        r2_data = r2.json() if r2.status_code == 200 else {"error": r2.text}
                         
-                        log_to_google_sheet(reorder_payload, r2.json() if r2.status_code == 200 else {"error": r2.text})
+                        # ✅ Log to SQLite (Re-Order Action)
+                        log_key = f"{txn_mode}-{sel_rec.get('client_code')}"
+                        log_nse_event("SYS_REORDER", log_key, reorder_payload, r2_data, net_info)
                         
                         if r2.status_code == 200:
                             st.success("✅ Order Placed Successfully!")
-                            # --- USE NEW TABLE RENDERER ---
-                            resp_html = render_transaction_response(r2.json())
+                            resp_html = render_transaction_response(r2_data)
                             st.markdown(resp_html, unsafe_allow_html=True)
                         else:
                             st.error(f"❌ Failed: {r2.status_code}")
